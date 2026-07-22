@@ -166,7 +166,7 @@ function SPZ_Tuners.OpenTunerMenu(vehicle)
     EnableTunerCam(vehicle, "full")
 
     -- Show keyboard helper text UI
-    lib.showTextUI("[↑/↓] Navigate  |  [←/→] Preview Option  |  [ENTER] Apply  |  [BACKSPACE] Back", {
+    lib.showTextUI("[↑/↓] Navigate  |  [←/→] Preview Option  |  [HOLD RMB] Free Cam  |  [ENTER] Apply  |  [BACKSPACE] Back", {
         position = "top-center",
         icon = "wrench",
         style = {
@@ -178,7 +178,7 @@ function SPZ_Tuners.OpenTunerMenu(vehicle)
 
     lib.registerMenu({
         id = 'spz_tuner_main',
-        title = '🔧 Performance & Customs',
+        title = 'Performance & Customs',
         position = Config.MenuPosition or 'top-left',
         onClose = function()
             lib.hideTextUI()
@@ -189,14 +189,14 @@ function SPZ_Tuners.OpenTunerMenu(vehicle)
             end
         end,
         options = {
-            { label = '⚡ Performance Upgrades', description = 'Engine, Brakes, Transmission, Turbo, Suspension' },
-            { label = '🏎️ Body Kits & Cosmetics', description = 'Spoilers, Bumpers, Hoods, Skirts, Exhausts' },
-            { label = '💺 Interior & Cabin', description = 'Dashboard, Seats, Steering Wheels, Roll Cage' },
-            { label = '🎨 Paints & Colors', description = 'Primary, Secondary, Pearlescent, Custom Colors' },
-            { label = '🛞 Wheels & Tires', description = 'Rims Categories, Tires, Smoke' },
-            { label = '💡 Lighting & Neons', description = 'Xenon Lights & Color, Underglow Neons' },
-            { label = '🚘 Window Tint & Plates', description = 'Window Tint & Custom License Plate' },
-            { label = '✨ Extras & Liveries', description = 'Vehicle Decals & Toggleable Extras' }
+            { label = 'Performance Upgrades', description = 'Engine, Brakes, Transmission, Turbo, Suspension' },
+            { label = 'Body Kits & Cosmetics', description = 'Spoilers, Bumpers, Hoods, Skirts, Exhausts' },
+            { label = 'Interior & Cabin', description = 'Dashboard, Seats, Steering Wheels, Roll Cage' },
+            { label = 'Paints & Colors', description = 'Primary, Secondary, Pearlescent, Custom Colors' },
+            { label = 'Wheels & Tires', description = 'Rims Categories, Tires, Smoke' },
+            { label = 'Lighting & Neons', description = 'Xenon Lights & Color, Underglow Neons' },
+            { label = 'Window Tint & Plates', description = 'Window Tint & Custom License Plate' },
+            { label = 'Extras & Liveries', description = 'Vehicle Decals & Toggleable Extras' }
         }
     }, function(selected, scrollIndex, args)
         if selected == 1 then SPZ_Tuners.OpenPerformanceMenu() end
@@ -248,7 +248,7 @@ function SPZ_Tuners.OpenPerformanceMenu()
 
     lib.registerMenu({
         id = 'spz_tuner_perf',
-        title = '⚡ Performance Upgrades',
+        title = 'Performance Upgrades',
         position = Config.MenuPosition or 'top-left',
         onClose = function() lib.showMenu('spz_tuner_main') end,
         onSideScroll = function(selected, scrollIndex, args)
@@ -303,7 +303,7 @@ function SPZ_Tuners.OpenBodyKitMenu()
 
     lib.registerMenu({
         id = 'spz_tuner_body',
-        title = '🏎️ Body Kits & Cosmetics',
+        title = 'Body Kits & Cosmetics',
         position = Config.MenuPosition or 'top-left',
         onClose = function() lib.showMenu('spz_tuner_main') end,
         onSelected = function(selected, secondary, args)
@@ -353,7 +353,7 @@ function SPZ_Tuners.OpenInteriorMenu()
 
     lib.registerMenu({
         id = 'spz_tuner_interior',
-        title = '💺 Interior & Cabin',
+        title = 'Interior & Cabin',
         position = Config.MenuPosition or 'top-left',
         onClose = function() lib.showMenu('spz_tuner_main') end,
         onSideScroll = function(selected, scrollIndex, args)
@@ -402,7 +402,7 @@ function SPZ_Tuners.OpenPaintsMenu()
 
     lib.registerMenu({
         id = 'spz_tuner_paints',
-        title = '🎨 Paints & Colors',
+        title = 'Paints & Colors',
         position = Config.MenuPosition or 'top-left',
         onClose = function() lib.showMenu('spz_tuner_main') end,
         onSideScroll = function(selected, scrollIndex, args)
@@ -452,7 +452,7 @@ function SPZ_Tuners.OpenWheelsMenu()
 
     lib.registerMenu({
         id = 'spz_tuner_wheels_cat',
-        title = '🛞 Wheels & Tires',
+        title = 'Wheels & Tires',
         position = Config.MenuPosition or 'top-left',
         onClose = function() lib.showMenu('spz_tuner_main') end,
         onSideScroll = function(selected, scrollIndex, args)
@@ -497,7 +497,7 @@ function SPZ_Tuners.OpenWheelModelsMenu()
 
     lib.registerMenu({
         id = 'spz_tuner_wheel_models',
-        title = '🛞 Select Rim Model',
+        title = 'Select Rim Model',
         position = Config.MenuPosition or 'top-left',
         onClose = function() lib.showMenu('spz_tuner_wheels_cat') end,
         onSideScroll = function(selected, scrollIndex, args)
@@ -535,7 +535,7 @@ function SPZ_Tuners.OpenLightingMenu()
 
     lib.registerMenu({
         id = 'spz_tuner_lighting',
-        title = '💡 Lighting & Neons',
+        title = 'Lighting & Neons',
         position = Config.MenuPosition or 'top-left',
         onClose = function() lib.showMenu('spz_tuner_main') end,
         onSideScroll = function(selected, scrollIndex, args)
@@ -585,7 +585,7 @@ function SPZ_Tuners.OpenPlateWindowMenu()
 
     lib.registerMenu({
         id = 'spz_tuner_plate_window',
-        title = '🚘 Window Tint & Plates',
+        title = 'Window Tint & Plates',
         position = Config.MenuPosition or 'top-left',
         onClose = function() lib.showMenu('spz_tuner_main') end,
         onSideScroll = function(selected, scrollIndex, args)
@@ -660,7 +660,7 @@ function SPZ_Tuners.OpenExtrasMenu()
 
     lib.registerMenu({
         id = 'spz_tuner_extras',
-        title = '✨ Extras & Liveries',
+        title = 'Extras & Liveries',
         position = Config.MenuPosition or 'top-left',
         onClose = function() lib.showMenu('spz_tuner_main') end,
         onSideScroll = function(selected, scrollIndex, args)
