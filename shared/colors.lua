@@ -58,8 +58,27 @@ SPZ_Tuners.Colors = {
     { label = "Brushed Aluminum", index = 119 },
     { label = "Pure Gold", index = 158 },
     { label = "Brushed Gold", index = 159 },
-
 }
+
+-- Chameleon & Special DLC Paints (Dynamic based on game build)
+function SPZ_Tuners.GetChameleonColors()
+    local build = GetGameBuildNumber()
+    local list = {}
+
+    if build >= 2545 then
+        for i = 161, 167 do
+            table.insert(list, { label = string.format("Chameleon Paint #%d", i - 161 + 1), index = i })
+        end
+    end
+
+    if build >= 2699 then
+        for i = 177, 242 do
+            table.insert(list, { label = string.format("Chameleon Flip #%d", i - 177 + 1), index = i })
+        end
+    end
+
+    return list
+end
 
 -- Xenon Headlight Colors (GTA V Xenon Light Index: 0 to 12)
 SPZ_Tuners.XenonColors = {

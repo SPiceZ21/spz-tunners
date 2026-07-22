@@ -378,8 +378,27 @@ function SPZ_Tuners.OpenPaintsMenu()
         table.insert(colorNames, item.label)
     end
 
+    local chameleonColors = SPZ_Tuners.GetChameleonColors and SPZ_Tuners.GetChameleonColors() or {}
+    local chameleonNames = {}
+    for _, item in ipairs(chameleonColors) do
+        table.insert(chameleonNames, item.label)
+    end
+
     local curP1, curP2 = GetVehicleColours(veh)
     local curPearl, curWheel = GetVehicleExtraColours(veh)
+
+    local options = {
+        { label = 'Primary Color', values = colorNames, defaultIndex = 1, args = { type = 'primary' } },
+        { label = 'Secondary Color', values = colorNames, defaultIndex = 1, args = { type = 'secondary' } },
+    }
+
+    if #chameleonNames > 0 then
+        table.insert(options, { label = 'Chameleon Primary (DLC Flip)', values = chameleonNames, defaultIndex = 1, args = { type = 'chameleonPrimary' } })
+        table.insert(options, { label = 'Chameleon Secondary (DLC Flip)', values = chameleonNames, defaultIndex = 1, args = { type = 'chameleonSecondary' } })
+    end
+
+    table.insert(options, { label = 'Pearlescent Finish', values = colorNames, defaultIndex = 1, args = { type = 'pearl' } })
+    table.insert(options, { label = 'Wheel Rim Color', values = colorNames, defaultIndex = 1, args = { type = 'wheelColor' } })
 
     lib.registerMenu({
         id = 'spz_tuner_paints',
@@ -387,26 +406,31 @@ function SPZ_Tuners.OpenPaintsMenu()
         position = Config.MenuPosition or 'top-left',
         onClose = function() lib.showMenu('spz_tuner_main') end,
         onSideScroll = function(selected, scrollIndex, args)
-            local targetColor = SPZ_Tuners.Colors[scrollIndex].index
+            SetVehicleModKit(veh, 0)
             local p1, p2 = GetVehicleColours(veh)
             local pearl, wheel = GetVehicleExtraColours(veh)
 
             if args.type == 'primary' then
+                local targetColor = SPZ_Tuners.Colors[scrollIndex].index
                 SetVehicleColours(veh, targetColor, p2)
             elseif args.type == 'secondary' then
+                local targetColor = SPZ_Tuners.Colors[scrollIndex].index
+                SetVehicleColours(veh, p1, targetColor)
+            elseif args.type == 'chameleonPrimary' then
+                local targetColor = chameleonColors[scrollIndex].index
+                SetVehicleColours(veh, targetColor, p2)
+            elseif args.type == 'chameleonSecondary' then
+                local targetColor = chameleonColors[scrollIndex].index
                 SetVehicleColours(veh, p1, targetColor)
             elseif args.type == 'pearl' then
+                local targetColor = SPZ_Tuners.Colors[scrollIndex].index
                 SetVehicleExtraColours(veh, targetColor, wheel)
             elseif args.type == 'wheelColor' then
+                local targetColor = SPZ_Tuners.Colors[scrollIndex].index
                 SetVehicleExtraColours(veh, pearl, targetColor)
             end
         end,
-        options = {
-            { label = 'Primary Color', values = colorNames, defaultIndex = 1, args = { type = 'primary' } },
-            { label = 'Secondary Color', values = colorNames, defaultIndex = 1, args = { type = 'secondary' } },
-            { label = 'Pearlescent Finish', values = colorNames, defaultIndex = 1, args = { type = 'pearl' } },
-            { label = 'Wheel Rim Color', values = colorNames, defaultIndex = 1, args = { type = 'wheelColor' } },
-        }
+        options = options
     }, function(selected, scrollIndex, args)
         lib.notify({ title = 'Paint Applied', description = 'Vehicle paint finish updated.', type = 'success' })
     end)
