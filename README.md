@@ -1,55 +1,59 @@
-<div align="center">
-
-<img src="https://github.com/SPiceZ21/spz-core-media-kit/raw/main/Banner/Banner%232.png" alt="SPiceZ-Core Banner" width="100%"/>
-
-<br/>
-
 # spz-tunners
-> Dynamic Keyboard-Driven Vehicle Tuning & Customization · `v1.0.0`
 
-## Scripts
+> Keyboard-driven vehicle tuning and customization · `v1.0.0`
 
-| Side   | File                | Purpose                                                 |
-| ------ | ------------------- | ------------------------------------------------------- |
-| Shared | `config.lua`        | Tuner shop locations, camera, and menu configurations   |
-| Shared | `shared/colors.lua` | Predefined color palettes, neons, xenons, and wheels    |
-| Server | `server/main.lua`   | Statebag persistence and database integration           |
-| Client | `client/cam.lua`    | Dynamic cinematic camera positioning for tuning parts   |
-| Client | `client/menu.lua`   | Core ox_lib keyboard menu builder & live preview engine |
-| Client | `client/main.lua`   | Commands, shop zones, ox_lib prompts, and exports       |
+## Overview
+
+`spz-tunners` is a tuning menu built entirely on `ox_lib`'s keyboard menu — no mouse, no
+NUI. It inspects the vehicle for available mods, colours, wheels, extras and neons,
+previews each option live as you scroll, and moves a cinematic camera to the part being
+changed. Standalone apart from `ox_lib`.
 
 ## Features
 
-- **100% Keyboard-Navigated Menu**: Built using `ox_lib`'s `lib.registerMenu` (Up/Down navigation, Left/Right side-scrolling preview, Enter to apply, Backspace to exit).
-- **Dynamic Vehicle Inspection**: Automatically queries available mods (`GetNumVehicleMods`), colors, wheel types, extras, and neons.
-- **Live Real-Time Preview**: Instant visual preview as options are side-scrolled, with automatic rollback if canceled.
-- **Cinematic Camera System**: Smoothly focuses on the component being modified (Engine, Hood, Spoiler, Bumpers, Wheels, Interior, Roof).
-- **Standalone & Export Friendly**: Command `/tuner`, garage shop markers, and client/server exports.
+- **Keyboard-only menu** via `lib.registerMenu` — navigate, side-scroll, apply, back.
+- **Dynamic inspection** — queries `GetNumVehicleMods`, colours, wheel types, extras, neons.
+- **Live preview** — options apply as you scroll, with rollback on cancel.
+- **Cinematic camera** — focuses engine, hood, spoiler, bumpers, wheels, interior, roof.
+- **Shop zones** — garage markers plus `/tune` anywhere, and exports for other resources.
 
-## Keyboard Controls
+## Structure
+
+| Side | File | Purpose |
+|---|---|---|
+| Shared | `config.lua` | Shop locations, camera and menu configuration |
+| Shared | `shared/colors.lua` | Colour palettes, neons, xenons, wheels |
+| Client | `client/main.lua` | Commands, shop zones, prompts, exports |
+| Client | `client/menu.lua` | Menu builder and live preview engine |
+| Client | `client/cam.lua` | Cinematic camera positioning |
+| Server | `server/main.lua` | Statebag persistence and database writes |
+
+## Controls
 
 | Key | Action |
-| --- | ------ |
-| **Up / Down (↑ / ↓)** | Navigate menu items |
-| **Left / Right (← / →)** | Side-scroll options / Live preview |
-| **ENTER** | Apply & confirm modification |
-| **BACKSPACE / ESC** | Go back / Exit menu |
+|---|---|
+| ↑ / ↓ | Navigate menu items |
+| ← / → | Side-scroll options with live preview |
+| `ENTER` | Apply and confirm |
+| `BACKSPACE` / `ESC` | Back / exit |
 
 ## Exports
 
 ```lua
--- Open tuner menu for current vehicle
 exports['spz-tunners']:OpenTunerMenu()
-
--- Capture vehicle mods snapshot
 local mods = exports['spz-tunners']:GetVehicleMods(vehicle)
-
--- Apply vehicle mods preset
 exports['spz-tunners']:ApplyVehicleMods(vehicle, mods)
+exports['spz-tunners']:SaveTunerPreset(vehicle)
 ```
 
-## Dependencies
-- ox_lib
+## Commands
 
-## CI
-Built and released via `.github/workflows/release.yml` on push to `main`.
+`/tune` · `/customs`
+
+## Dependencies
+
+`ox_lib`
+
+---
+
+Part of [SPiceZ-Core](../README.md) · GPL-3.0
