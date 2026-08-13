@@ -465,7 +465,7 @@ function SPZ_Tuners.OpenWheelsMenu()
         options = {
             { label = 'Wheel Category', values = wheelTypeNames, defaultIndex = (curWheelType + 1), args = { type = 'category' } },
             { label = 'Select Wheel Model', description = 'Browse wheels in selected category' },
-            { label = 'Custom Tires', values = { "Standard Tires", "Custom Tires (Atomic/Design)" }, defaultIndex = IsVehicleModCustom(veh, 23) and 2 or 1, args = { type = 'customTires' } }
+            { label = 'Custom Tires', values = { "Standard Tires", "Custom Tires (Atomic/Design)" }, defaultIndex = GetVehicleModVariation(veh, 23) and 2 or 1, args = { type = 'customTires' } }
         }
     }, function(selected, scrollIndex, args)
         if selected == 2 then
