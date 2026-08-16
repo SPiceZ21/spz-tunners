@@ -266,6 +266,7 @@ function SPZ_Tuners.OpenPerformanceMenu()
             SetVehicleMod(veh, args.slot, scrollIndex - 2, false)
         end
         lib.notify({ title = 'Tuning Applied', description = 'Performance upgrade fitted.', type = 'success' })
+        lib.showMenu('spz_tuner_perf')   -- keep open on Enter (don't close the menu)
     end)
 
     lib.showMenu('spz_tuner_perf')
@@ -316,6 +317,7 @@ function SPZ_Tuners.OpenBodyKitMenu()
     }, function(selected, scrollIndex, args)
         SetVehicleMod(veh, args.slot, scrollIndex - 2, false)
         lib.notify({ title = 'Tuning Applied', description = (MOD_SLOT_NAMES[args.slot].label .. ' updated.'), type = 'success' })
+        lib.showMenu('spz_tuner_body')   -- keep open on Enter
     end)
 
     lib.showMenu('spz_tuner_body')
@@ -363,6 +365,7 @@ function SPZ_Tuners.OpenInteriorMenu()
     }, function(selected, scrollIndex, args)
         SetVehicleMod(veh, args.slot, scrollIndex - 2, false)
         lib.notify({ title = 'Interior Fitted', description = 'Interior option updated.', type = 'success' })
+        lib.showMenu('spz_tuner_interior')   -- keep open on Enter
     end)
 
     lib.showMenu('spz_tuner_interior')
@@ -433,6 +436,7 @@ function SPZ_Tuners.OpenPaintsMenu()
         options = options
     }, function(selected, scrollIndex, args)
         lib.notify({ title = 'Paint Applied', description = 'Vehicle paint finish updated.', type = 'success' })
+        lib.showMenu('spz_tuner_paints')   -- keep open on Enter
     end)
 
     lib.showMenu('spz_tuner_paints')
@@ -475,6 +479,7 @@ function SPZ_Tuners.OpenWheelsMenu()
             local curMod = GetVehicleMod(veh, 23)
             SetVehicleMod(veh, 23, curMod, isCustom)
             lib.notify({ title = 'Tires Updated', description = isCustom and 'Custom tires applied.' or 'Standard tires equipped.', type = 'success' })
+            lib.showMenu('spz_tuner_wheels_cat')   -- keep open on Enter
         end
     end)
 
@@ -511,6 +516,7 @@ function SPZ_Tuners.OpenWheelModelsMenu()
         local isCustom = IsVehicleModCustom(veh, 23)
         SetVehicleMod(veh, 23, scrollIndex - 2, isCustom)
         lib.notify({ title = 'Wheels Applied', description = 'Wheel rim model updated.', type = 'success' })
+        lib.showMenu('spz_tuner_wheel_models')   -- keep open on Enter
     end)
 
     lib.showMenu('spz_tuner_wheel_models')
@@ -560,6 +566,7 @@ function SPZ_Tuners.OpenLightingMenu()
         }
     }, function(selected, scrollIndex, args)
         lib.notify({ title = 'Lighting Updated', description = 'Vehicle lighting setup applied.', type = 'success' })
+        lib.showMenu('spz_tuner_lighting')   -- keep open on Enter
     end)
 
     lib.showMenu('spz_tuner_lighting')
@@ -612,6 +619,7 @@ function SPZ_Tuners.OpenPlateWindowMenu()
         else
             lib.notify({ title = 'Options Applied', description = 'Window tint & plate style updated.', type = 'success' })
         end
+        lib.showMenu('spz_tuner_plate_window')   -- keep open on Enter
     end)
 
     lib.showMenu('spz_tuner_plate_window')
@@ -678,6 +686,7 @@ function SPZ_Tuners.OpenExtrasMenu()
             SetVehicleExtra(veh, args.extraId, (scrollIndex == 2) and 0 or 1)
         end
         lib.notify({ title = 'Extra Applied', description = 'Vehicle extra / livery updated.', type = 'success' })
+        lib.showMenu('spz_tuner_extras')   -- keep open on Enter
     end)
 
     lib.showMenu('spz_tuner_extras')

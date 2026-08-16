@@ -98,3 +98,25 @@ function DisableTunerCam()
     activeFocus = nil
     currentVeh = nil
 end
+
+-- Safety watchdog: whatever closes the menu (ESC, or an Enter/select that slips
+-- past the reopen), if NO tuner menu is open the camera must come down — this is
+-- what stops you getting stuck in the tuner camera.
+CreateThread(function()
+    local misses = 0
+    while true do
+        Wait(400)
+        if isCamActive then
+            local m = lib and lib.getOpenMenu and lib.getOpenMenu()
+            local tunerOpen = type(m) == 'string' and m:sub(1, 10) == 'spz_tuner_'
+            if tunerOpen then
+                misses = 0
+            else
+                misses = misses + 1              -- ~0.8s grace for menu-to-menu hops
+                if misses >= 2 then DisableTunerCam(); misses = 0 end
+            end
+        else
+            misses = 0
+        end
+    end
+end)
