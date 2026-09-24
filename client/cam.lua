@@ -1,101 +1,191 @@
 -- client/cam.lua
-local cam = nil
-local activeFocus = nil
-local currentVeh = nil
+-- Tuner camera — behaves like qbx_customs' drag cam.
+--
+--   * One camera for the whole tuner session. It opens with the main menu and
+--     closes with it; moving between submenus does not reframe it.
+--   * The cursor is on screen. Hold left mouse and drag to orbit the car.
+--   * Scroll zooms (2.5 – 10 m), Space opens / shuts every door, V toggles
+--     first-person view.
+--   * While the tuner is open the car cannot be driven: throttle, brake,
+--     steering and the radio are disabled.
+--
+-- Angles are world-space degrees around the car: yaw around Z, pitch 0 – 89
+-- above the ground plane (90 would flip the camera, below 0 goes underground).
+
+local cam         = nil
+local currentVeh  = nil
 local isCamActive = false
+local firstPerson = false
+local scaleform   = nil
 
--- Focus Offsets for different tuning targets (relative to vehicle bounding box / coords)
-local CAM_OFFSETS = {
-    front = { pos = vector3(0.0, 3.8, 0.6), look = vector3(0.0, 1.2, 0.0) },
-    rear  = { pos = vector3(0.0, -3.8, 0.6), look = vector3(0.0, -1.2, 0.0) },
-    left  = { pos = vector3(-3.2, 0.0, 0.5), look = vector3(0.0, 0.0, 0.0) },
-    right = { pos = vector3(3.2, 0.0, 0.5), look = vector3(0.0, 0.0, 0.0) },
-    engine= { pos = vector3(0.0, 2.2, 1.4), look = vector3(0.0, 1.0, 0.2) },
-    wheels= { pos = vector3(-2.2, 1.2, 0.1), look = vector3(0.0, 1.2, -0.2) },
-    spoiler={ pos = vector3(0.0, -2.8, 1.4), look = vector3(0.0, -1.8, 0.4) },
-    roof  = { pos = vector3(0.0, -0.5, 2.8), look = vector3(0.0, 0.0, 0.5) },
-    inside= { pos = vector3(-0.3, 0.0, 0.6), look = vector3(0.3, 0.6, 0.2) },
-    full  = { pos = vector3(-3.8, 3.8, 1.6), look = vector3(0.0, 0.0, 0.0) },
-}
+local yaw, pitch = 0.0, 0.0
+local radius     = 5.0
 
--- Orbit Cam Variables
-local orbitAngleX = 0.0
-local orbitAngleY = 0.3
-local orbitRadius = 4.5
+local SENSITIVITY = 8.0
+local RADIUS_MIN, RADIUS_MAX, ZOOM_STEP = 2.5, 10.0, 0.5
 
-local function StartCamOrbitLoop()
+local function place()
+    local c = GetEntityCoords(currentVeh)
+    local ry, rp = math.rad(yaw), math.rad(pitch)
+    SetCamCoord(cam,
+        c.x + math.cos(ry) * math.cos(rp) * radius,
+        c.y + math.sin(ry) * math.cos(rp) * radius,
+        c.z + math.sin(rp) * radius)
+    PointCamAtCoord(cam, c.x, c.y, c.z + 0.5)
+end
+
+local function toggleDoors()
+    for door = 0, GetNumberOfVehicleDoors(currentVeh) do
+        if GetVehicleDoorAngleRatio(currentVeh, door) > 0.0 then
+            SetVehicleDoorShut(currentVeh, door, false)
+        else
+            SetVehicleDoorOpen(currentVeh, door, false, false)
+        end
+    end
+end
+
+-- ── Instructional buttons ────────────────────────────────────────────────────
+
+local function button(slot, control, text)
+    BeginScaleformMovieMethod(scaleform, 'SET_DATA_SLOT')
+    ScaleformMovieMethodAddParamInt(slot)
+    ScaleformMovieMethodAddParamPlayerNameString(GetControlInstructionalButton(0, control, true))
+    BeginTextCommandScaleformString('STRING')
+    AddTextComponentSubstringKeyboardDisplay(text)
+    EndTextCommandScaleformString()
+    EndScaleformMovieMethod()
+end
+
+local function drawButtons()
     CreateThread(function()
-        while isCamActive and cam and DoesEntityExist(currentVeh) do
-            -- Right Mouse Button (RMB / INPUT_AIM = 25) for free rotation
-            if IsDisabledControlPressed(0, 25) or IsControlPressed(0, 25) then
-                DisableControlAction(0, 1, true) -- Look Left/Right
-                DisableControlAction(0, 2, true) -- Look Up/Down
+        scaleform = RequestScaleformMovie('instructional_buttons')
+        while not HasScaleformMovieLoaded(scaleform) do Wait(0) end
 
-                local mouseX = GetDisabledControlNormal(0, 1)
-                local mouseY = GetDisabledControlNormal(0, 2)
+        BeginScaleformMovieMethod(scaleform, 'CLEAR_ALL')
+        EndScaleformMovieMethod()
+        button(1, 14, 'Zoom out')
+        button(2, 15, 'Zoom in')
+        button(3, 22, 'Toggle doors')
+        button(4, 0, 'Change view')
+        BeginScaleformMovieMethod(scaleform, 'DRAW_INSTRUCTIONAL_BUTTONS')
+        EndScaleformMovieMethod()
 
-                orbitAngleX = orbitAngleX - (mouseX * 5.0)
-                orbitAngleY = math.max(-0.2, math.min(1.2, orbitAngleY + (mouseY * 5.0)))
+        BeginScaleformMovieMethod(scaleform, 'SET_BACKGROUND_COLOUR')
+        ScaleformMovieMethodAddParamInt(0)
+        ScaleformMovieMethodAddParamInt(0)
+        ScaleformMovieMethodAddParamInt(0)
+        ScaleformMovieMethodAddParamInt(80)
+        EndScaleformMovieMethod()
 
-                local vPos = GetEntityCoords(currentVeh)
-                local camX = vPos.x + orbitRadius * math.cos(orbitAngleY) * math.sin(orbitAngleX)
-                local camY = vPos.y + orbitRadius * math.cos(orbitAngleY) * math.cos(orbitAngleX)
-                local camZ = vPos.z + orbitRadius * math.sin(orbitAngleY)
+        while isCamActive do
+            DrawScaleformMovieFullscreen(scaleform, 255, 255, 255, 255, 0)
+            Wait(0)
+        end
+        SetScaleformMovieAsNoLongerNeeded(scaleform)
+        scaleform = nil
+    end)
+end
 
-                SetCamCoord(cam, camX, camY, camZ)
-                PointCamAtCoord(cam, vPos.x, vPos.y, vPos.z + 0.4)
+-- ── Input ────────────────────────────────────────────────────────────────────
+
+-- On foot / combat inputs that would fire while you click around the car.
+local PLAYER_CONTROLS = { 21, 24, 25, 30, 31, 36, 47, 58, 69, 75, 140, 141, 142, 143, 257, 263, 264 }
+-- Mouse look + weapon wheel + pause-alternate (the cursor owns the mouse).
+local CAM_CONTROLS    = { 1, 2, 3, 4, 5, 6, 12, 13, 200 }
+-- The car stays put: throttle, brake, radio, steering.
+local DRIVE_CONTROLS  = { 71, 72, 81, 82, 83, 84, 85, 106 }
+
+local function disableAll(list)
+    for _, c in ipairs(list) do DisableControlAction(0, c, true) end
+end
+
+local function dragLoop()
+    CreateThread(function()
+        while isCamActive do
+            local dx = GetDisabledControlNormal(0, 1) * SENSITIVITY
+            local dy = GetDisabledControlNormal(0, 2) * SENSITIVITY
+            yaw   = yaw - dx
+            pitch = math.max(0.0, math.min(89.0, pitch + dy))
+            place()
+
+            if IsDisabledControlJustReleased(0, 24) or IsControlJustReleased(0, 24) then
+                SetMouseCursorSprite(3)
+                return
             end
             Wait(0)
         end
     end)
 end
 
+local function inputLoop()
+    CreateThread(function()
+        while isCamActive do
+            DisableControlAction(0, 0, true)   -- V: handled below
+            disableAll(PLAYER_CONTROLS)
+            disableAll(DRIVE_CONTROLS)
+
+            if not firstPerson then
+                SetMouseCursorActiveThisFrame()
+                disableAll(CAM_CONTROLS)
+                if IsDisabledControlJustPressed(0, 24) or IsControlJustPressed(0, 24) then
+                    SetMouseCursorSprite(4)
+                    dragLoop()
+                end
+            end
+
+            if IsDisabledControlJustReleased(0, 14) or IsControlJustReleased(0, 14) then
+                if radius + ZOOM_STEP <= RADIUS_MAX then radius = radius + ZOOM_STEP; place() end
+            elseif IsDisabledControlJustReleased(0, 15) or IsControlJustReleased(0, 15) then
+                if radius - ZOOM_STEP >= RADIUS_MIN then radius = radius - ZOOM_STEP; place() end
+            end
+
+            if IsControlJustPressed(0, 22) then toggleDoors() end
+
+            if IsDisabledControlJustPressed(0, 0) then
+                firstPerson = not firstPerson
+                if firstPerson then
+                    SetCamViewModeForContext(1, 4)
+                    RenderScriptCams(false, true, 0, true, false)
+                else
+                    RenderScriptCams(true, true, 0, true, false)
+                end
+            end
+
+            Wait(0)
+        end
+    end)
+end
+
+-- ── API (used by client/menu.lua) ────────────────────────────────────────────
+
+--- Starts the session camera the first time; later calls (submenus) keep the
+--- camera where the player left it, as qbx_customs does. `targetFocus` is
+--- accepted for compatibility and ignored.
 function EnableTunerCam(vehicle, targetFocus)
     if not Config.EnableDynamicCamera then return end
-    if not DoesEntityExist(vehicle) then return end
+    if isCamActive or not DoesEntityExist(vehicle) then return end
 
-    currentVeh = vehicle
-    local focusConfig = CAM_OFFSETS[targetFocus] or CAM_OFFSETS.full
-    local vPos = GetEntityCoords(vehicle)
+    currentVeh  = vehicle
+    yaw, pitch  = 0.0, 0.0
+    radius      = 5.0
+    firstPerson = false
 
-    local worldPos  = GetOffsetFromEntityInWorldCoords(vehicle, focusConfig.pos.x, focusConfig.pos.y, focusConfig.pos.z)
-    local worldLook = GetOffsetFromEntityInWorldCoords(vehicle, focusConfig.look.x, focusConfig.look.y, focusConfig.look.z)
+    cam = CreateCam('DEFAULT_SCRIPTED_CAMERA', true)
+    RenderScriptCams(true, true, 0, true, false)
+    isCamActive = true
 
-    -- Calculate initial polar angles from targetFocus offset
-    local relX = focusConfig.pos.x
-    local relY = focusConfig.pos.y
-    local relZ = focusConfig.pos.z
-    orbitRadius = #(focusConfig.pos)
-    orbitAngleX = math.atan(relX, relY)
-    orbitAngleY = math.asin(relZ / orbitRadius)
-
-    if not cam then
-        cam = CreateCam("DEFAULT_SCRIPTED_CAMERA", true)
-        SetCamCoord(cam, worldPos.x, worldPos.y, worldPos.z)
-        PointCamAtCoord(cam, worldLook.x, worldLook.y, worldLook.z)
-        SetCamFov(cam, 50.0)
-        SetCamActive(cam, true)
-        RenderScriptCams(true, true, 800, true, true)
-
-        isCamActive = true
-        StartCamOrbitLoop()
-    else
-        SetCamCoord(cam, worldPos.x, worldPos.y, worldPos.z)
-        PointCamAtCoord(cam, worldLook.x, worldLook.y, worldLook.z)
-    end
-
-    activeFocus = targetFocus
+    place()          -- otherwise the cam sits on the player until the first drag
+    drawButtons()
+    inputLoop()
 end
 
 function DisableTunerCam()
+    if not isCamActive then return end
     isCamActive = false
-    if cam then
-        RenderScriptCams(false, true, 800, true, true)
-        SetCamActive(cam, false)
-        DestroyCam(cam, true)
-        cam = nil
-    end
-    activeFocus = nil
+    RenderScriptCams(false, true, 0, true, false)
+    if cam then DestroyCam(cam, true) end
+    cam = nil
+    SetCamViewModeForContext(1, 1)
     currentVeh = nil
 end
 
@@ -119,4 +209,8 @@ CreateThread(function()
             misses = 0
         end
     end
+end)
+
+AddEventHandler('onResourceStop', function(res)
+    if res == GetCurrentResourceName() then DisableTunerCam() end
 end)

@@ -1,56 +1,63 @@
 -- client/menu.lua
+-- Tuner menus — same behaviour as qbx_customs:
+--
+--   * ←/→ previews an option on the car. Nothing is kept until you press Enter.
+--   * Enter installs it: "<part> installed" + the pick-up chime. Picking what is
+--     already on the car says "Already installed" instead.
+--   * Leaving a menu (Backspace) puts every un-installed preview back.
+--   * ↑/↓ ticks, and backing out returns you to the row you came from.
+--   * A damaged car gets a Repair-only main menu until it's fixed.
+--
+-- Menu tree:
+--   Main ─ Performance
+--        ─ Parts ─ (body + interior mods, plate style, plate text) ─ Wheels
+--        ─ Cosmetics & Colors ─ Primary Paint, Secondary Paint, Neon (submenus)
+--                             ─ xenon, pearlescent, wheel colour, window tint,
+--                               tyre smoke, interior colour, livery
+--        ─ Extras
 SPZ_Tuners = SPZ_Tuners or {}
 
 local CurrentVehicle = 0
-local SavedVehicleState = nil
-local CurrentPreviewState = {}
+local MAIN = 'spz_tuner_main'
 
--- Mod Type Names & Descriptions
+-- Mod Type Names
 local MOD_SLOT_NAMES = {
-    [0]  = { label = "Spoiler", focus = "spoiler" },
-    [1]  = { label = "Front Bumper", focus = "front" },
-    [2]  = { label = "Rear Bumper", focus = "rear" },
-    [3]  = { label = "Side Skirt", focus = "left" },
-    [4]  = { label = "Exhaust", focus = "rear" },
-    [5]  = { label = "Roll Cage / Frame", focus = "inside" },
-    [6]  = { label = "Grille", focus = "front" },
-    [7]  = { label = "Bonnet / Hood", focus = "engine" },
-    [8]  = { label = "Fender / Left Wing", focus = "left" },
-    [9]  = { label = "Right Fender", focus = "right" },
-    [10] = { label = "Roof", focus = "roof" },
-    [11] = { label = "Engine Upgrade", focus = "engine" },
-    [12] = { label = "Brakes", focus = "wheels" },
-    [13] = { label = "Transmission", focus = "engine" },
-    [14] = { label = "Horn", focus = "front" },
-    [15] = { label = "Suspension", focus = "wheels" },
-    [16] = { label = "Armor", focus = "full" },
-    [18] = { label = "Turbo Tuning", focus = "engine" },
-    [22] = { label = "Xenon Lights", focus = "front" },
-    [25] = { label = "Plate Holder", focus = "rear" },
-    [26] = { label = "Vanity Plate", focus = "front" },
-    [27] = { label = "Trim Design", focus = "inside" },
-    [28] = { label = "Ornaments", focus = "inside" },
-    [29] = { label = "Dashboard Design", focus = "inside" },
-    [30] = { label = "Dials", focus = "inside" },
-    [31] = { label = "Door Speakers", focus = "inside" },
-    [32] = { label = "Seats", focus = "inside" },
-    [33] = { label = "Steering Wheel", focus = "inside" },
-    [34] = { label = "Gear Lever", focus = "inside" },
-    [35] = { label = "Plaques", focus = "inside" },
-    [36] = { label = "Speakers", focus = "inside" },
-    [37] = { label = "Trunk", focus = "rear" },
-    [38] = { label = "Hydraulics", focus = "wheels" },
-    [39] = { label = "Engine Block", focus = "engine" },
-    [40] = { label = "Air Filter", focus = "engine" },
-    [41] = { label = "Struts", focus = "engine" },
-    [42] = { label = "Arch Cover", focus = "wheels" },
-    [43] = { label = "Aerials", focus = "roof" },
-    [44] = { label = "Trim Option 2", focus = "inside" },
-    [45] = { label = "Fuel Tank", focus = "rear" },
-    [48] = { label = "Livery / Decals", focus = "full" },
+    [0]  = "Spoiler",           [1]  = "Front Bumper",     [2]  = "Rear Bumper",
+    [3]  = "Side Skirt",        [4]  = "Exhaust",          [5]  = "Roll Cage",
+    [6]  = "Grille",            [7]  = "Hood",             [8]  = "Left Fender",
+    [9]  = "Right Fender",      [10] = "Roof",             [11] = "Engine",
+    [12] = "Brakes",            [13] = "Transmission",     [14] = "Horn",
+    [15] = "Suspension",        [16] = "Armor",            [25] = "Plate Holder",
+    [26] = "Vanity Plate",      [27] = "Trim Design",      [28] = "Ornaments",
+    [29] = "Dashboard",         [30] = "Dials",            [31] = "Door Speakers",
+    [32] = "Seats",             [33] = "Steering Wheel",   [34] = "Gear Lever",
+    [35] = "Plaques",           [36] = "Speakers",         [37] = "Trunk",
+    [38] = "Hydraulics",        [39] = "Engine Block",     [40] = "Air Filter",
+    [41] = "Struts",            [42] = "Arch Cover",       [43] = "Aerials",
+    [44] = "Trim Option 2",     [45] = "Fuel Tank",        [46] = "Windows",
 }
 
--- Capture Vehicle Snapshot for Rollback
+local PERFORMANCE_SLOTS = { 11, 12, 13, 15, 16 }
+local PARTS_SLOTS = {
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 14, 25, 26, 27, 28, 29, 30, 31, 32, 33,
+    34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46,
+}
+
+local TYRE_SMOKE = {
+    { label = 'White Smoke',  rgb = { 254, 254, 254 } },
+    { label = 'Black Smoke',  rgb = { 1, 1, 1 } },
+    { label = 'Blue Smoke',   rgb = { 0, 150, 255 } },
+    { label = 'Yellow Smoke', rgb = { 255, 255, 50 } },
+    { label = 'Orange Smoke', rgb = { 255, 153, 51 } },
+    { label = 'Red Smoke',    rgb = { 255, 10, 10 } },
+    { label = 'Green Smoke',  rgb = { 10, 255, 10 } },
+    { label = 'Purple Smoke', rgb = { 153, 10, 153 } },
+    { label = 'Pink Smoke',   rgb = { 255, 102, 178 } },
+    { label = 'Gray Smoke',   rgb = { 128, 128, 128 } },
+}
+
+-- ── Snapshot / restore (used by the exports in client/main.lua) ──────────────
+
 function SPZ_Tuners.SnapshotVehicle(vehicle)
     if not DoesEntityExist(vehicle) then return nil end
 
@@ -60,6 +67,7 @@ function SPZ_Tuners.SnapshotVehicle(vehicle)
     local r1, g1, b1   = GetVehicleCustomPrimaryColour(vehicle)
     local r2, g2, b2   = GetVehicleCustomSecondaryColour(vehicle)
     local nr, ng, nb   = GetVehicleNeonLightsColour(vehicle)
+    local sr, sg, sb   = GetVehicleTyreSmokeColor(vehicle)
 
     local mods = {}
     for slot = 0, 49 do
@@ -78,15 +86,19 @@ function SPZ_Tuners.SnapshotVehicle(vehicle)
         secondary = p2,
         pearlescent = pearl,
         wheelColor = wheel,
+        interiorColor = GetVehicleInteriorColor(vehicle),
         customPrimary = GetIsVehiclePrimaryColourCustom(vehicle) and { r1, g1, b1 } or nil,
         customSecondary = GetIsVehicleSecondaryColourCustom(vehicle) and { r2, g2, b2 } or nil,
         livery = GetVehicleLivery(vehicle),
         wheelType = GetVehicleWheelType(vehicle),
+        customTires = GetVehicleModVariation(vehicle, 23),
         plateText = GetVehicleNumberPlateText(vehicle),
         plateIndex = GetVehicleNumberPlateTextIndex(vehicle),
         windowTint = GetVehicleWindowTint(vehicle),
         xenonColor = GetVehicleXenonLightsColor(vehicle),
         turbo = IsToggleModOn(vehicle, 18),
+        tyreSmoke = IsToggleModOn(vehicle, 20),
+        tyreSmokeColor = { sr, sg, sb },
         xenonEnabled = IsToggleModOn(vehicle, 22),
         neonEnabled = {
             left  = IsVehicleNeonLightEnabled(vehicle, 0),
@@ -100,13 +112,13 @@ function SPZ_Tuners.SnapshotVehicle(vehicle)
     }
 end
 
--- Restore Vehicle State
 function SPZ_Tuners.RestoreVehicle(vehicle, state)
     if not DoesEntityExist(vehicle) or not state then return end
 
     SetVehicleModKit(vehicle, 0)
     SetVehicleColours(vehicle, state.primary, state.secondary)
     SetVehicleExtraColours(vehicle, state.pearlescent, state.wheelColor)
+    if state.interiorColor then SetVehicleInteriorColor(vehicle, state.interiorColor) end
 
     if state.customPrimary then
         SetVehicleCustomPrimaryColour(vehicle, state.customPrimary[1], state.customPrimary[2], state.customPrimary[3])
@@ -129,6 +141,10 @@ function SPZ_Tuners.RestoreVehicle(vehicle, state)
     if state.xenonColor and state.xenonColor >= 0 then
         SetVehicleXenonLightsColor(vehicle, state.xenonColor)
     end
+    if state.tyreSmoke ~= nil then ToggleVehicleMod(vehicle, 20, state.tyreSmoke) end
+    if state.tyreSmokeColor then
+        SetVehicleTyreSmokeColor(vehicle, state.tyreSmokeColor[1], state.tyreSmokeColor[2], state.tyreSmokeColor[3])
+    end
 
     for i = 0, 3 do
         SetVehicleNeonLightEnabled(vehicle, i, state.neonEnabled[i == 0 and "left" or i == 1 and "right" or i == 2 and "front" or "back"])
@@ -136,558 +152,616 @@ function SPZ_Tuners.RestoreVehicle(vehicle, state)
     SetVehicleNeonLightsColour(vehicle, state.neonColor[1], state.neonColor[2], state.neonColor[3])
 
     for slot, modIdx in pairs(state.mods) do
-        SetVehicleMod(vehicle, tonumber(slot), modIdx, false)
+        slot = tonumber(slot)
+        SetVehicleMod(vehicle, slot, modIdx, slot == 23 and state.customTires or false)
     end
 
     for extraId, enabled in pairs(state.extras) do
-        SetVehicleExtra(vehicle, extraId, enabled and 0 or 1)
+        SetVehicleExtra(vehicle, tonumber(extraId), enabled and 0 or 1)
     end
 end
 
--- Get Mod Label Name
+-- ── Helpers ──────────────────────────────────────────────────────────────────
+
 local function GetModLabel(vehicle, modType, modIndex)
-    if modIndex == -1 then return "Stock / None" end
+    if modIndex == -1 then return "Stock" end
     local name = GetModTextLabel(vehicle, modType, modIndex)
     if name and name ~= "" then
         local text = GetLabelText(name)
         if text and text ~= "NULL" then return text end
     end
-    return string.format("Custom Option #%d", modIndex + 1)
+    return ("%s %d"):format(MOD_SLOT_NAMES[modType] or "Option", modIndex + 1)
 end
 
--- ── Open Main Tuner Keyboard Menu ──────────────────────────────────────────────
+local function labelsOf(list)
+    local out = {}
+    for i, item in ipairs(list) do out[i] = item.label end
+    return out
+end
+
+local function indexOf(list, key, value)
+    for i, item in ipairs(list) do
+        if item[key] == value then return i end
+    end
+    return 1
+end
+
+local function price()
+    if Config.FreeTuning then return 'Free' end
+    return ('$%d'):format(Config.DefaultModPrice or 0)
+end
+
+local function byLabel(a, b) return a.label < b.label end
+
+local function sound(name)
+    PlaySoundFrontend(-1, name, 'HUD_FRONTEND_DEFAULT_SOUNDSET', true)
+end
+
+--- Enter on an option. Tuning is free on this server (Config.FreeTuning), so
+--- the only refusal is installing what is already there.
+local function Install(duplicate, description)
+    if duplicate then
+        lib.notify({ title = 'Tuner', description = 'Already installed', type = 'error' })
+        return false
+    end
+    lib.notify({ title = 'Installed', description = description, type = 'success', icon = 'wrench', position = 'top' })
+    sound('PICK_UP')
+    return true
+end
+
+-- ── Menu framework ───────────────────────────────────────────────────────────
+-- A menu definition: { id, title, parent, build = fn() -> options, empty = msg }
+-- An option is one of:
+--   value option  { label, description, values, defaultIndex,
+--                   set = fn(index) -> duplicate, installedText,
+--                   restore = fn() }
+--   submenu       { label, description, submenu = <definition> }
+--   action        { label, description, action = fn() }
+-- `build` runs again after every install, so "original" is always what the car
+-- actually has installed right now.
+
+local LastIndex = {}
+
+local function showMenu(id)
+    lib.showMenu(id, LastIndex[id] or 1)
+end
+
+local Open
+
+Open = function(def)
+    -- A dialog (plate text) closes the menu for a moment and the camera
+    -- watchdog takes the cam down; bring it back with the menu. No-op when on.
+    EnableTunerCam(CurrentVehicle)
+
+    local options = def.build()
+    if #options == 0 then
+        lib.notify({ title = 'Tuner', description = def.empty or 'Nothing to change here', type = 'inform' })
+        if def.parent then showMenu(def.parent) end
+        return
+    end
+
+    local function restoreAll()
+        for _, o in ipairs(options) do
+            if o.restore then o.restore() end
+        end
+    end
+
+    lib.registerMenu({
+        id = def.id,
+        title = def.title,
+        position = Config.MenuPosition or 'top-left',
+        canClose = true,
+        disableInput = false,
+        options = options,
+        onSelected = function(selected)
+            sound('NAV_UP_DOWN')
+            LastIndex[def.id] = selected
+        end,
+        onSideScroll = function(selected, scrollIndex)
+            sound('NAV_UP_DOWN')
+            local o = options[selected]
+            if o and o.set then o.set(scrollIndex) end
+        end,
+        onClose = function()
+            restoreAll()
+            if def.onClose then def.onClose() end
+            if def.parent then showMenu(def.parent) end
+        end,
+    }, function(selected, scrollIndex)
+        local o = options[selected]
+        restoreAll()
+
+        if o.submenu then
+            LastIndex[o.submenu.id] = 1
+            return Open(o.submenu)
+        end
+        if o.action then return o.action() end
+
+        local duplicate, text = o.set(scrollIndex)
+        if not Install(duplicate, text) and o.restore then o.restore() end
+
+        options = def.build()
+        lib.setMenuOptions(def.id, options)
+        showMenu(def.id)
+    end)
+
+    showMenu(def.id)
+end
+
+-- Reusable option builders ----------------------------------------------------
+
+--- A vehicle mod slot as a scroll list ("Stock", option 1, option 2 …).
+local function modOption(veh, slot, labelFn)
+    local count = GetNumVehicleMods(veh, slot)
+    if count <= 0 then return nil end
+
+    local original = GetVehicleMod(veh, slot)
+    local values = {}
+    for i = -1, count - 1 do
+        values[#values + 1] = labelFn and labelFn(i) or GetModLabel(veh, slot, i)
+    end
+
+    return {
+        label = MOD_SLOT_NAMES[slot] or ('Mod %d'):format(slot),
+        description = price(),
+        values = values,
+        close = true,
+        defaultIndex = original + 2,
+        set = function(index)
+            SetVehicleMod(veh, slot, index - 2, false)
+            return original == index - 2, ('%s: %s'):format(MOD_SLOT_NAMES[slot] or 'Mod', values[index])
+        end,
+        restore = function() SetVehicleMod(veh, slot, original, false) end,
+    }
+end
+
+--- A list of {label, <key>} applied with apply(item); original read by read().
+local function listOption(label, list, key, read, apply)
+    local original = read()
+    return {
+        label = label,
+        description = price(),
+        values = labelsOf(list),
+        close = true,
+        defaultIndex = indexOf(list, key, original),
+        set = function(index)
+            apply(list[index][key])
+            return list[index][key] == original, ('%s: %s'):format(label, list[index].label)
+        end,
+        restore = function() apply(original) end,
+    }
+end
+
+local function toggleOption(label, read, apply, offText, onText)
+    local original = read()
+    offText, onText = offText or 'Disabled', onText or 'Enabled'
+    return {
+        label = label,
+        description = price(),
+        values = { offText, onText },
+        close = true,
+        defaultIndex = original and 2 or 1,
+        set = function(index)
+            apply(index == 2)
+            return original == (index == 2), ('%s %s'):format(label, (index == 2 and onText or offText):lower())
+        end,
+        restore = function() apply(original) end,
+    }
+end
+
+-- ── Performance ──────────────────────────────────────────────────────────────
+
+local PerformanceMenu = {
+    id = 'spz_tuner_perf', title = 'Performance', parent = MAIN,
+    empty = 'This vehicle has no performance upgrades',
+    build = function()
+        local veh, options = CurrentVehicle, {}
+        for _, slot in ipairs(PERFORMANCE_SLOTS) do
+            local o = modOption(veh, slot, function(i)
+                return i == -1 and 'Stock' or ('%s %d'):format(MOD_SLOT_NAMES[slot], i + 1)
+            end)
+            if o then options[#options + 1] = o end
+        end
+        if GetVehicleClass(veh) ~= 13 then   -- not a bicycle
+            options[#options + 1] = toggleOption('Turbo',
+                function() return IsToggleModOn(veh, 18) end,
+                function(on) ToggleVehicleMod(veh, 18, on) end)
+        end
+        table.sort(options, byLabel)
+        return options
+    end,
+}
+
+-- ── Wheels (inside Parts) ────────────────────────────────────────────────────
+
+local function wheelTypeAllowed(veh, wheelType)
+    local class = GetVehicleClass(veh)
+    if class == 13 then return false end                 -- cycles
+    if class == 8 then return wheelType == 6 end         -- motorcycles: bike wheels
+    if class == 22 then return wheelType == 10 end       -- open wheel
+    return true
+end
+
+local WheelsMenu = {
+    id = 'spz_tuner_wheels', title = 'Wheels', parent = 'spz_tuner_parts',
+    build = function()
+        local veh, options = CurrentVehicle, {}
+        local originalType = GetVehicleWheelType(veh)
+        local originalMod  = GetVehicleMod(veh, 23)
+        local originalCustom = GetVehicleModVariation(veh, 23)
+
+        local function restore()
+            SetVehicleWheelType(veh, originalType)
+            SetVehicleMod(veh, 23, originalMod, originalCustom)
+        end
+
+        for _, category in ipairs(SPZ_Tuners.WheelTypes) do
+            if wheelTypeAllowed(veh, category.type) then
+                -- Rim names are only readable with that wheel type set.
+                SetVehicleWheelType(veh, category.type)
+                local count, labels = GetNumVehicleMods(veh, 23), {}
+                for i = 0, count - 1 do labels[i + 1] = GetModLabel(veh, 23, i) end
+
+                if count > 0 then
+                    options[#options + 1] = {
+                        label = category.label,
+                        description = price(),
+                        values = labels,
+                        close = true,
+                        defaultIndex = (originalType == category.type and originalMod >= 0) and originalMod + 1 or 1,
+                        set = function(index)
+                            SetVehicleWheelType(veh, category.type)
+                            SetVehicleMod(veh, 23, index - 1, originalCustom)
+                            return originalType == category.type and originalMod == index - 1,
+                                ('%s wheels: %s'):format(category.label, labels[index])
+                        end,
+                        restore = restore,
+                    }
+                end
+            end
+        end
+        SetVehicleWheelType(veh, originalType)
+        table.sort(options, byLabel)
+
+        options[#options + 1] = {
+            label = 'Custom Tires',
+            description = price(),
+            values = { 'Standard', 'Custom' },
+            close = true,
+            defaultIndex = originalCustom and 2 or 1,
+            set = function(index)
+                SetVehicleMod(veh, 23, GetVehicleMod(veh, 23), index == 2)
+                return originalCustom == (index == 2), index == 2 and 'Custom tires fitted' or 'Standard tires fitted'
+            end,
+            restore = restore,
+        }
+        return options
+    end,
+}
+
+-- ── Parts ────────────────────────────────────────────────────────────────────
+
+local PartsMenu = {
+    id = 'spz_tuner_parts', title = 'Parts', parent = MAIN,
+    build = function()
+        local veh, options = CurrentVehicle, {}
+        for _, slot in ipairs(PARTS_SLOTS) do
+            local o = modOption(veh, slot)
+            if o then options[#options + 1] = o end
+        end
+
+        options[#options + 1] = listOption('Plate Style', SPZ_Tuners.PlateStyles, 'index',
+            function() return GetVehicleNumberPlateTextIndex(veh) end,
+            function(v) SetVehicleNumberPlateTextIndex(veh, v) end)
+
+        if GetVehicleClass(veh) ~= 13 then
+            options[#options + 1] = { label = 'Wheels', description = 'Rims by category, custom tires', close = true, submenu = WheelsMenu }
+        end
+
+        options[#options + 1] = {
+            label = 'Plate Text', description = GetVehicleNumberPlateText(veh), close = true,
+            action = function()
+                local input = lib.inputDialog('License Plate', {
+                    { type = 'input', label = 'Plate text', placeholder = 'SPICEZ', max = 8, required = true },
+                })
+                local text = input and input[1] and input[1]:upper():sub(1, 8)
+                if text and text ~= '' then
+                    local same = (GetVehicleNumberPlateText(veh):gsub('%s+$', '')) == text
+                    if not same then SetVehicleNumberPlateText(veh, text) end
+                    Install(same, 'Plate text: ' .. text)
+                end
+                Open(PartsMenu)
+            end,
+        }
+
+        table.sort(options, byLabel)
+        return options
+    end,
+}
+
+-- ── Cosmetics & Colors ───────────────────────────────────────────────────────
+
+--- Primary / secondary paint: one scroll list per paint family.
+local function PaintMenu(primary)
+    return {
+        id = primary and 'spz_tuner_paint_primary' or 'spz_tuner_paint_secondary',
+        title = primary and 'Primary Paint' or 'Secondary Paint',
+        parent = 'spz_tuner_colors',
+        build = function()
+            local veh = CurrentVehicle
+            local p1, p2 = GetVehicleColours(veh)
+            local current = primary and p1 or p2
+
+            local function paint(v)
+                if primary then SetVehicleColours(veh, v, p2) else SetVehicleColours(veh, p1, v) end
+            end
+            local function restore() SetVehicleColours(veh, p1, p2) end
+
+            local function family(label, list)
+                return {
+                    label = label,
+                    description = price(),
+                    values = labelsOf(list),
+                    close = true,
+                    defaultIndex = indexOf(list, 'index', current),
+                    set = function(index)
+                        paint(list[index].index)
+                        return list[index].index == current, ('%s: %s'):format(primary and 'Primary' or 'Secondary', list[index].label)
+                    end,
+                    restore = restore,
+                }
+            end
+
+            local options = { family('Classic', SPZ_Tuners.Colors) }
+            local chameleons = SPZ_Tuners.GetChameleonColors and SPZ_Tuners.GetChameleonColors() or {}
+            if #chameleons > 0 then
+                options[#options + 1] = family('Chameleon', chameleons)
+                if primary then
+                    -- Chameleon reads properly only when the whole body carries it.
+                    options[#options + 1] = {
+                        label = 'Chameleon (whole car)',
+                        description = price() .. ' · primary + secondary',
+                        values = labelsOf(chameleons),
+                        close = true,
+                        defaultIndex = indexOf(chameleons, 'index', p1),
+                        set = function(index)
+                            local c = chameleons[index].index
+                            SetVehicleColours(veh, c, c)
+                            return p1 == c and p2 == c, 'Chameleon: ' .. chameleons[index].label
+                        end,
+                        restore = restore,
+                    }
+                end
+            end
+            return options
+        end,
+    }
+end
+
+local NeonMenu = {
+    id = 'spz_tuner_neon', title = 'Neon', parent = 'spz_tuner_colors',
+    build = function()
+        local veh, options = CurrentVehicle, {}
+        for i, side in ipairs({ 'Left', 'Right', 'Front', 'Back' }) do
+            options[i] = toggleOption(side .. ' Neon',
+                function() return IsVehicleNeonLightEnabled(veh, i - 1) end,
+                function(on) SetVehicleNeonLightEnabled(veh, i - 1, on) end)
+        end
+
+        local r, g, b = GetVehicleNeonLightsColour(veh)
+        local original = 1
+        for i, c in ipairs(SPZ_Tuners.NeonColors) do
+            if c.rgb[1] == r and c.rgb[2] == g and c.rgb[3] == b then original = i end
+        end
+        options[5] = {
+            label = 'Neon Color',
+            description = price(),
+            values = labelsOf(SPZ_Tuners.NeonColors),
+            close = true,
+            defaultIndex = original,
+            set = function(index)
+                local c = SPZ_Tuners.NeonColors[index].rgb
+                SetVehicleNeonLightsColour(veh, c[1], c[2], c[3])
+                return index == original, 'Neon color: ' .. SPZ_Tuners.NeonColors[index].label
+            end,
+            restore = function() SetVehicleNeonLightsColour(veh, r, g, b) end,
+        }
+        return options
+    end,
+}
+
+local ColorsMenu
+ColorsMenu = {
+    id = 'spz_tuner_colors', title = 'Cosmetics & Colors', parent = MAIN,
+    build = function()
+        local veh = CurrentVehicle
+        local options = {
+            { label = 'Primary Paint', close = true, submenu = PaintMenu(true) },
+            { label = 'Secondary Paint', close = true, submenu = PaintMenu(false) },
+            { label = 'Neon', close = true, submenu = NeonMenu },
+        }
+
+        -- Xenon: "Disabled", then every colour.
+        local xenonOn, xenonColor = IsToggleModOn(veh, 22), GetVehicleXenonLightsColor(veh)
+        local xenonValues = { 'Disabled' }
+        for _, x in ipairs(SPZ_Tuners.XenonColors) do xenonValues[#xenonValues + 1] = x.label end
+        options[#options + 1] = {
+            label = 'Xenon Lights',
+            description = price(),
+            values = xenonValues,
+            close = true,
+            defaultIndex = xenonOn and (indexOf(SPZ_Tuners.XenonColors, 'index', xenonColor) + 1) or 1,
+            set = function(index)
+                if index == 1 then
+                    ToggleVehicleMod(veh, 22, false)
+                    return not xenonOn, 'Xenon lights disabled'
+                end
+                local c = SPZ_Tuners.XenonColors[index - 1]
+                ToggleVehicleMod(veh, 22, true)
+                SetVehicleXenonLightsColor(veh, c.index)
+                return xenonOn and xenonColor == c.index, 'Xenon: ' .. c.label
+            end,
+            restore = function()
+                ToggleVehicleMod(veh, 22, xenonOn)
+                SetVehicleXenonLightsColor(veh, xenonColor)
+            end,
+        }
+
+        -- Pearlescent accepts chameleons too.
+        local pearls = {}
+        for _, c in ipairs(SPZ_Tuners.Colors) do pearls[#pearls + 1] = c end
+        for _, c in ipairs(SPZ_Tuners.GetChameleonColors and SPZ_Tuners.GetChameleonColors() or {}) do pearls[#pearls + 1] = c end
+
+        options[#options + 1] = listOption('Pearlescent', pearls, 'index',
+            function() return (GetVehicleExtraColours(veh)) end,
+            function(v) local _, w = GetVehicleExtraColours(veh); SetVehicleExtraColours(veh, v, w) end)
+
+        options[#options + 1] = listOption('Wheel Color', SPZ_Tuners.Colors, 'index',
+            function() local _, w = GetVehicleExtraColours(veh); return w end,
+            function(v) local p = GetVehicleExtraColours(veh); SetVehicleExtraColours(veh, p, v) end)
+
+        options[#options + 1] = listOption('Window Tint', SPZ_Tuners.WindowTints, 'index',
+            function() return GetVehicleWindowTint(veh) end,
+            function(v) SetVehicleWindowTint(veh, v) end)
+
+        options[#options + 1] = listOption('Interior', SPZ_Tuners.Colors, 'index',
+            function() return GetVehicleInteriorColor(veh) end,
+            function(v) SetVehicleInteriorColor(veh, v) end)
+
+        -- Tyre smoke (turns the smoke mod on).
+        local sr, sg, sb = GetVehicleTyreSmokeColor(veh)
+        local smokeOn = IsToggleModOn(veh, 20)
+        local smokeIdx = 1
+        for i, c in ipairs(TYRE_SMOKE) do
+            if c.rgb[1] == sr and c.rgb[2] == sg and c.rgb[3] == sb then smokeIdx = i end
+        end
+        options[#options + 1] = {
+            label = 'Tyre Smoke',
+            description = price(),
+            values = labelsOf(TYRE_SMOKE),
+            close = true,
+            defaultIndex = smokeIdx,
+            set = function(index)
+                local c = TYRE_SMOKE[index].rgb
+                ToggleVehicleMod(veh, 20, true)
+                SetVehicleTyreSmokeColor(veh, c[1], c[2], c[3])
+                return smokeOn and index == smokeIdx, 'Tyre smoke: ' .. TYRE_SMOKE[index].label
+            end,
+            restore = function()
+                ToggleVehicleMod(veh, 20, smokeOn)
+                SetVehicleTyreSmokeColor(veh, sr, sg, sb)
+            end,
+        }
+
+        -- Livery: mod slot 48 when the car has one, else the old livery system.
+        if GetNumVehicleMods(veh, 48) > 0 then
+            local o = modOption(veh, 48)
+            if o then o.label = 'Livery'; options[#options + 1] = o end
+        elseif GetVehicleLiveryCount(veh) > 0 then
+            local original, values = GetVehicleLivery(veh), {}
+            for i = 1, GetVehicleLiveryCount(veh) do values[i] = ('Livery %d'):format(i) end
+            options[#options + 1] = {
+                label = 'Livery',
+                description = price(),
+                values = values,
+                close = true,
+                defaultIndex = math.max(original, 0) + 1,
+                set = function(index)
+                    SetVehicleLivery(veh, index - 1)
+                    return original == index - 1, 'Livery: ' .. values[index]
+                end,
+                restore = function() SetVehicleLivery(veh, original) end,
+            }
+        end
+
+        table.sort(options, byLabel)
+        return options
+    end,
+}
+
+-- ── Extras ───────────────────────────────────────────────────────────────────
+
+local function hasExtras(veh)
+    for i = 1, 14 do
+        if DoesExtraExist(veh, i) then return true end
+    end
+    return false
+end
+
+local ExtrasMenu = {
+    id = 'spz_tuner_extras', title = 'Extras', parent = MAIN,
+    empty = 'This vehicle has no extras',
+    build = function()
+        local veh, options = CurrentVehicle, {}
+        for i = 1, 14 do
+            if DoesExtraExist(veh, i) then
+                options[#options + 1] = toggleOption(('Extra %d'):format(i),
+                    function() return IsVehicleExtraTurnedOn(veh, i) end,
+                    function(on) SetVehicleExtra(veh, i, on and 0 or 1) end)
+            end
+        end
+        return options
+    end,
+}
+
+-- ── Main ─────────────────────────────────────────────────────────────────────
+
+local MainMenu
+MainMenu = {
+    id = MAIN, title = 'Customs',
+    build = function()
+        local veh = CurrentVehicle
+
+        -- A damaged car has to be repaired before anything else, like qbx.
+        if GetVehicleBodyHealth(veh) < 1000.0 then
+            return {{
+                label = 'Repair Vehicle',
+                description = price(),
+                close = true,
+                action = function()
+                    SetVehicleFixed(veh)
+                    SetVehicleDeformationFixed(veh)
+                    SetVehicleEngineHealth(veh, 1000.0)
+                    SetVehicleBodyHealth(veh, 1000.0)
+                    SetVehicleDirtLevel(veh, 0.0)
+                    Install(false, 'Vehicle repaired')
+                    Open(MainMenu)
+                end,
+            }}
+        end
+
+        local options = {
+            { label = 'Performance', close = true, submenu = PerformanceMenu },
+            { label = 'Parts', close = true, submenu = PartsMenu },
+            { label = 'Cosmetics & Colors', close = true, submenu = ColorsMenu },
+        }
+        if hasExtras(veh) then
+            options[#options + 1] = { label = 'Extras', close = true, submenu = ExtrasMenu }
+        end
+        return options
+    end,
+    onClose = function()
+        lib.hideTextUI()
+        DisableTunerCam()
+        if Config.SaveToVehicleState and DoesEntityExist(CurrentVehicle) then
+            TriggerServerEvent("SPZ:tuner:saveVehicle", VehToNet(CurrentVehicle), SPZ_Tuners.SnapshotVehicle(CurrentVehicle))
+        end
+    end,
+}
+
 function SPZ_Tuners.OpenTunerMenu(vehicle)
     if not DoesEntityExist(vehicle) then return end
+    if lib.getOpenMenu() then return end   -- already in the tuner
 
     CurrentVehicle = vehicle
     SetVehicleModKit(vehicle, 0)
-    SavedVehicleState = SPZ_Tuners.SnapshotVehicle(vehicle)
+    LastIndex = {}
 
-    EnableTunerCam(vehicle, "full")
-
-    -- Show keyboard helper text UI
-    lib.showTextUI("[↑/↓] Navigate  |  [←/→] Preview Option  |  [HOLD RMB] Free Cam  |  [ENTER] Apply  |  [BACKSPACE] Back", {
+    lib.showTextUI("[↑/↓] Navigate  |  [←/→] Preview  |  [ENTER] Install  |  [BACKSPACE] Back", {
         position = "top-center",
         icon = "wrench",
-        style = {
-            borderRadius = 4,
-            backgroundColor = "#1E293B",
-            color = "#F8FAFC"
-        }
+        style = { borderRadius = 4, backgroundColor = "#1E293B", color = "#F8FAFC" },
     })
 
-    lib.registerMenu({
-        id = 'spz_tuner_main',
-        title = 'Performance & Customs',
-        position = Config.MenuPosition or 'top-left',
-        onClose = function()
-            lib.hideTextUI()
-            DisableTunerCam()
-            -- Confirm save on exit if modifications were applied
-            if Config.SaveToVehicleState then
-                TriggerServerEvent("SPZ:tuner:saveVehicle", VehToNet(CurrentVehicle), SPZ_Tuners.SnapshotVehicle(CurrentVehicle))
-            end
-        end,
-        options = {
-            { label = 'Performance Upgrades', description = 'Engine, Brakes, Transmission, Turbo, Suspension' },
-            { label = 'Body Kits & Cosmetics', description = 'Spoilers, Bumpers, Hoods, Skirts, Exhausts' },
-            { label = 'Interior & Cabin', description = 'Dashboard, Seats, Steering Wheels, Roll Cage' },
-            { label = 'Paints & Colors', description = 'Primary, Secondary, Pearlescent, Custom Colors' },
-            { label = 'Wheels & Tires', description = 'Rims Categories, Tires, Smoke' },
-            { label = 'Lighting & Neons', description = 'Xenon Lights & Color, Underglow Neons' },
-            { label = 'Window Tint & Plates', description = 'Window Tint & Custom License Plate' },
-            { label = 'Extras & Liveries', description = 'Vehicle Decals & Toggleable Extras' }
-        }
-    }, function(selected, scrollIndex, args)
-        if selected == 1 then SPZ_Tuners.OpenPerformanceMenu() end
-        if selected == 2 then SPZ_Tuners.OpenBodyKitMenu() end
-        if selected == 3 then SPZ_Tuners.OpenInteriorMenu() end
-        if selected == 4 then SPZ_Tuners.OpenPaintsMenu() end
-        if selected == 5 then SPZ_Tuners.OpenWheelsMenu() end
-        if selected == 6 then SPZ_Tuners.OpenLightingMenu() end
-        if selected == 7 then SPZ_Tuners.OpenPlateWindowMenu() end
-        if selected == 8 then SPZ_Tuners.OpenExtrasMenu() end
-    end)
-
-    lib.showMenu('spz_tuner_main')
-end
-
--- ── 1. Performance Submenu ────────────────────────────────────────────────────
-function SPZ_Tuners.OpenPerformanceMenu()
-    EnableTunerCam(CurrentVehicle, "engine")
-    local veh = CurrentVehicle
-
-    local perfSlots = { 11, 12, 13, 15, 16 }
-    local options = {}
-
-    for _, slot in ipairs(perfSlots) do
-        local count = GetNumVehicleMods(veh, slot)
-        if count > 0 then
-            local current = GetVehicleMod(veh, slot)
-            local values = { "Stock" }
-            for i = 0, count - 1 do
-                table.insert(values, string.format("Level %d", i + 1))
-            end
-            table.insert(options, {
-                label = MOD_SLOT_NAMES[slot].label,
-                values = values,
-                defaultIndex = current + 2,
-                args = { slot = slot }
-            })
-        end
-    end
-
-    -- Turbo Toggle
-    local turboState = IsToggleModOn(veh, 18)
-    table.insert(options, {
-        label = "Turbocharger",
-        values = { "Disabled", "Installed (Turbo)" },
-        defaultIndex = turboState and 2 or 1,
-        args = { slot = 18, isToggle = true }
-    })
-
-    lib.registerMenu({
-        id = 'spz_tuner_perf',
-        title = 'Performance Upgrades',
-        position = Config.MenuPosition or 'top-left',
-        onClose = function() lib.showMenu('spz_tuner_main') end,
-        onSideScroll = function(selected, scrollIndex, args)
-            if args.isToggle then
-                ToggleVehicleMod(veh, 18, scrollIndex == 2)
-            else
-                SetVehicleMod(veh, args.slot, scrollIndex - 2, false)
-            end
-        end,
-        options = options
-    }, function(selected, scrollIndex, args)
-        if args.isToggle then
-            ToggleVehicleMod(veh, 18, scrollIndex == 2)
-        else
-            SetVehicleMod(veh, args.slot, scrollIndex - 2, false)
-        end
-        lib.notify({ title = 'Tuning Applied', description = 'Performance upgrade fitted.', type = 'success' })
-        lib.showMenu('spz_tuner_perf')   -- keep open on Enter (don't close the menu)
-    end)
-
-    lib.showMenu('spz_tuner_perf')
-end
-
--- ── 2. Body Kits & Cosmetics Submenu ──────────────────────────────────────────
-function SPZ_Tuners.OpenBodyKitMenu()
-    EnableTunerCam(CurrentVehicle, "full")
-    local veh = CurrentVehicle
-
-    local bodySlots = { 0, 1, 2, 3, 4, 6, 7, 8, 9, 10, 25, 26, 37, 39, 40, 41, 42, 43, 45 }
-    local options = {}
-
-    for _, slot in ipairs(bodySlots) do
-        local count = GetNumVehicleMods(veh, slot)
-        if count > 0 then
-            local current = GetVehicleMod(veh, slot)
-            local values = {}
-            for i = -1, count - 1 do
-                table.insert(values, GetModLabel(veh, slot, i))
-            end
-            table.insert(options, {
-                label = MOD_SLOT_NAMES[slot].label,
-                values = values,
-                defaultIndex = current + 2,
-                args = { slot = slot, focus = MOD_SLOT_NAMES[slot].focus }
-            })
-        end
-    end
-
-    if #options == 0 then
-        lib.notify({ title = 'Body Kits', description = 'No cosmetic body parts available for this vehicle.', type = 'error' })
-        return
-    end
-
-    lib.registerMenu({
-        id = 'spz_tuner_body',
-        title = 'Body Kits & Cosmetics',
-        position = Config.MenuPosition or 'top-left',
-        onClose = function() lib.showMenu('spz_tuner_main') end,
-        onSelected = function(selected, secondary, args)
-            if args and args.focus then EnableTunerCam(veh, args.focus) end
-        end,
-        onSideScroll = function(selected, scrollIndex, args)
-            SetVehicleMod(veh, args.slot, scrollIndex - 2, false)
-        end,
-        options = options
-    }, function(selected, scrollIndex, args)
-        SetVehicleMod(veh, args.slot, scrollIndex - 2, false)
-        lib.notify({ title = 'Tuning Applied', description = (MOD_SLOT_NAMES[args.slot].label .. ' updated.'), type = 'success' })
-        lib.showMenu('spz_tuner_body')   -- keep open on Enter
-    end)
-
-    lib.showMenu('spz_tuner_body')
-end
-
--- ── 3. Interior Submenu ───────────────────────────────────────────────────────
-function SPZ_Tuners.OpenInteriorMenu()
-    EnableTunerCam(CurrentVehicle, "inside")
-    local veh = CurrentVehicle
-
-    local interiorSlots = { 5, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 44 }
-    local options = {}
-
-    for _, slot in ipairs(interiorSlots) do
-        local count = GetNumVehicleMods(veh, slot)
-        if count > 0 then
-            local current = GetVehicleMod(veh, slot)
-            local values = {}
-            for i = -1, count - 1 do
-                table.insert(values, GetModLabel(veh, slot, i))
-            end
-            table.insert(options, {
-                label = MOD_SLOT_NAMES[slot].label,
-                values = values,
-                defaultIndex = current + 2,
-                args = { slot = slot }
-            })
-        end
-    end
-
-    if #options == 0 then
-        lib.notify({ title = 'Interior', description = 'No custom interior options available for this vehicle.', type = 'error' })
-        return
-    end
-
-    lib.registerMenu({
-        id = 'spz_tuner_interior',
-        title = 'Interior & Cabin',
-        position = Config.MenuPosition or 'top-left',
-        onClose = function() lib.showMenu('spz_tuner_main') end,
-        onSideScroll = function(selected, scrollIndex, args)
-            SetVehicleMod(veh, args.slot, scrollIndex - 2, false)
-        end,
-        options = options
-    }, function(selected, scrollIndex, args)
-        SetVehicleMod(veh, args.slot, scrollIndex - 2, false)
-        lib.notify({ title = 'Interior Fitted', description = 'Interior option updated.', type = 'success' })
-        lib.showMenu('spz_tuner_interior')   -- keep open on Enter
-    end)
-
-    lib.showMenu('spz_tuner_interior')
-end
-
--- ── 4. Paints Submenu ─────────────────────────────────────────────────────────
-function SPZ_Tuners.OpenPaintsMenu()
-    EnableTunerCam(CurrentVehicle, "full")
-    local veh = CurrentVehicle
-
-    local colorNames = {}
-    for _, item in ipairs(SPZ_Tuners.Colors) do
-        table.insert(colorNames, item.label)
-    end
-
-    local chameleonColors = SPZ_Tuners.GetChameleonColors and SPZ_Tuners.GetChameleonColors() or {}
-    local chameleonNames = {}
-    for _, item in ipairs(chameleonColors) do
-        table.insert(chameleonNames, item.label)
-    end
-
-    local curP1, curP2 = GetVehicleColours(veh)
-    local curPearl, curWheel = GetVehicleExtraColours(veh)
-
-    local options = {
-        { label = 'Primary Color', values = colorNames, defaultIndex = 1, args = { type = 'primary' } },
-        { label = 'Secondary Color', values = colorNames, defaultIndex = 1, args = { type = 'secondary' } },
-    }
-
-    if #chameleonNames > 0 then
-        table.insert(options, { label = 'Chameleon Primary (DLC Flip)', values = chameleonNames, defaultIndex = 1, args = { type = 'chameleonPrimary' } })
-        table.insert(options, { label = 'Chameleon Secondary (DLC Flip)', values = chameleonNames, defaultIndex = 1, args = { type = 'chameleonSecondary' } })
-    end
-
-    table.insert(options, { label = 'Pearlescent Finish', values = colorNames, defaultIndex = 1, args = { type = 'pearl' } })
-    table.insert(options, { label = 'Wheel Rim Color', values = colorNames, defaultIndex = 1, args = { type = 'wheelColor' } })
-
-    lib.registerMenu({
-        id = 'spz_tuner_paints',
-        title = 'Paints & Colors',
-        position = Config.MenuPosition or 'top-left',
-        onClose = function() lib.showMenu('spz_tuner_main') end,
-        onSideScroll = function(selected, scrollIndex, args)
-            SetVehicleModKit(veh, 0)
-            local p1, p2 = GetVehicleColours(veh)
-            local pearl, wheel = GetVehicleExtraColours(veh)
-
-            if args.type == 'primary' then
-                local targetColor = SPZ_Tuners.Colors[scrollIndex].index
-                SetVehicleColours(veh, targetColor, p2)
-            elseif args.type == 'secondary' then
-                local targetColor = SPZ_Tuners.Colors[scrollIndex].index
-                SetVehicleColours(veh, p1, targetColor)
-            elseif args.type == 'chameleonPrimary' then
-                local targetColor = chameleonColors[scrollIndex].index
-                SetVehicleColours(veh, targetColor, p2)
-            elseif args.type == 'chameleonSecondary' then
-                local targetColor = chameleonColors[scrollIndex].index
-                SetVehicleColours(veh, p1, targetColor)
-            elseif args.type == 'pearl' then
-                local targetColor = SPZ_Tuners.Colors[scrollIndex].index
-                SetVehicleExtraColours(veh, targetColor, wheel)
-            elseif args.type == 'wheelColor' then
-                local targetColor = SPZ_Tuners.Colors[scrollIndex].index
-                SetVehicleExtraColours(veh, pearl, targetColor)
-            end
-        end,
-        options = options
-    }, function(selected, scrollIndex, args)
-        lib.notify({ title = 'Paint Applied', description = 'Vehicle paint finish updated.', type = 'success' })
-        lib.showMenu('spz_tuner_paints')   -- keep open on Enter
-    end)
-
-    lib.showMenu('spz_tuner_paints')
-end
-
--- ── 5. Wheels & Tires Submenu ─────────────────────────────────────────────────
-function SPZ_Tuners.OpenWheelsMenu()
-    EnableTunerCam(CurrentVehicle, "wheels")
-    local veh = CurrentVehicle
-
-    local wheelTypeNames = {}
-    for _, w in ipairs(SPZ_Tuners.WheelTypes) do
-        table.insert(wheelTypeNames, w.label)
-    end
-
-    local curWheelType = GetVehicleWheelType(veh)
-
-    lib.registerMenu({
-        id = 'spz_tuner_wheels_cat',
-        title = 'Wheels & Tires',
-        position = Config.MenuPosition or 'top-left',
-        onClose = function() lib.showMenu('spz_tuner_main') end,
-        onSideScroll = function(selected, scrollIndex, args)
-            if args.type == 'category' then
-                local wType = SPZ_Tuners.WheelTypes[scrollIndex].type
-                SetVehicleWheelType(veh, wType)
-                SetVehicleMod(veh, 23, 0, false)
-            end
-        end,
-        options = {
-            { label = 'Wheel Category', values = wheelTypeNames, defaultIndex = (curWheelType + 1), args = { type = 'category' } },
-            { label = 'Select Wheel Model', description = 'Browse wheels in selected category' },
-            { label = 'Custom Tires', values = { "Standard Tires", "Custom Tires (Atomic/Design)" }, defaultIndex = GetVehicleModVariation(veh, 23) and 2 or 1, args = { type = 'customTires' } }
-        }
-    }, function(selected, scrollIndex, args)
-        if selected == 2 then
-            SPZ_Tuners.OpenWheelModelsMenu()
-        elseif selected == 3 then
-            local isCustom = (scrollIndex == 2)
-            local curMod = GetVehicleMod(veh, 23)
-            SetVehicleMod(veh, 23, curMod, isCustom)
-            lib.notify({ title = 'Tires Updated', description = isCustom and 'Custom tires applied.' or 'Standard tires equipped.', type = 'success' })
-            lib.showMenu('spz_tuner_wheels_cat')   -- keep open on Enter
-        end
-    end)
-
-    lib.showMenu('spz_tuner_wheels_cat')
-end
-
-function SPZ_Tuners.OpenWheelModelsMenu()
-    local veh = CurrentVehicle
-    local count = GetNumVehicleMods(veh, 23)
-    if count == 0 then
-        lib.notify({ title = 'Wheels', description = 'No wheel models available for this category.', type = 'error' })
-        return
-    end
-
-    local current = GetVehicleMod(veh, 23)
-    local values = {}
-    for i = -1, count - 1 do
-        table.insert(values, GetModLabel(veh, 23, i))
-    end
-
-    lib.registerMenu({
-        id = 'spz_tuner_wheel_models',
-        title = 'Select Rim Model',
-        position = Config.MenuPosition or 'top-left',
-        onClose = function() lib.showMenu('spz_tuner_wheels_cat') end,
-        onSideScroll = function(selected, scrollIndex, args)
-            local isCustom = IsVehicleModCustom(veh, 23)
-            SetVehicleMod(veh, 23, scrollIndex - 2, isCustom)
-        end,
-        options = {
-            { label = 'Rim Style', values = values, defaultIndex = current + 2 }
-        }
-    }, function(selected, scrollIndex, args)
-        local isCustom = IsVehicleModCustom(veh, 23)
-        SetVehicleMod(veh, 23, scrollIndex - 2, isCustom)
-        lib.notify({ title = 'Wheels Applied', description = 'Wheel rim model updated.', type = 'success' })
-        lib.showMenu('spz_tuner_wheel_models')   -- keep open on Enter
-    end)
-
-    lib.showMenu('spz_tuner_wheel_models')
-end
-
--- ── 6. Lighting & Neons Submenu ───────────────────────────────────────────────
-function SPZ_Tuners.OpenLightingMenu()
-    EnableTunerCam(CurrentVehicle, "front")
-    local veh = CurrentVehicle
-
-    local xenonColorNames = {}
-    for _, x in ipairs(SPZ_Tuners.XenonColors) do
-        table.insert(xenonColorNames, x.label)
-    end
-
-    local neonColorNames = {}
-    for _, n in ipairs(SPZ_Tuners.NeonColors) do
-        table.insert(neonColorNames, n.label)
-    end
-
-    local xenonOn = IsToggleModOn(veh, 22)
-
-    lib.registerMenu({
-        id = 'spz_tuner_lighting',
-        title = 'Lighting & Neons',
-        position = Config.MenuPosition or 'top-left',
-        onClose = function() lib.showMenu('spz_tuner_main') end,
-        onSideScroll = function(selected, scrollIndex, args)
-            if args.type == 'xenon' then
-                ToggleVehicleMod(veh, 22, scrollIndex == 2)
-            elseif args.type == 'xenonColor' then
-                local xColor = SPZ_Tuners.XenonColors[scrollIndex].index
-                SetVehicleXenonLightsColor(veh, xColor)
-            elseif args.type == 'neonLayout' then
-                local on = (scrollIndex > 1)
-                for i = 0, 3 do SetVehicleNeonLightEnabled(veh, i, on) end
-            elseif args.type == 'neonColor' then
-                local rgb = SPZ_Tuners.NeonColors[scrollIndex].rgb
-                SetVehicleNeonLightsColour(veh, rgb[1], rgb[2], rgb[3])
-            end
-        end,
-        options = {
-            { label = 'Xenon Headlights', values = { "Stock White", "Xenon Lights" }, defaultIndex = xenonOn and 2 or 1, args = { type = 'xenon' } },
-            { label = 'Xenon Headlight Color', values = xenonColorNames, defaultIndex = 1, args = { type = 'xenonColor' } },
-            { label = 'Underglow Neon Kit', values = { "Off", "All Sides Enabled" }, defaultIndex = 1, args = { type = 'neonLayout' } },
-            { label = 'Neon Underglow Color', values = neonColorNames, defaultIndex = 1, args = { type = 'neonColor' } },
-        }
-    }, function(selected, scrollIndex, args)
-        lib.notify({ title = 'Lighting Updated', description = 'Vehicle lighting setup applied.', type = 'success' })
-        lib.showMenu('spz_tuner_lighting')   -- keep open on Enter
-    end)
-
-    lib.showMenu('spz_tuner_lighting')
-end
-
--- ── 7. Window Tint & Plates Submenu ───────────────────────────────────────────
-function SPZ_Tuners.OpenPlateWindowMenu()
-    EnableTunerCam(CurrentVehicle, "rear")
-    local veh = CurrentVehicle
-
-    local tintNames = {}
-    for _, t in ipairs(SPZ_Tuners.WindowTints) do
-        table.insert(tintNames, t.label)
-    end
-
-    local plateStyleNames = {}
-    for _, p in ipairs(SPZ_Tuners.PlateStyles) do
-        table.insert(plateStyleNames, p.label)
-    end
-
-    local curTint = GetVehicleWindowTint(veh)
-    local curPlateStyle = GetVehicleNumberPlateTextIndex(veh)
-
-    lib.registerMenu({
-        id = 'spz_tuner_plate_window',
-        title = 'Window Tint & Plates',
-        position = Config.MenuPosition or 'top-left',
-        onClose = function() lib.showMenu('spz_tuner_main') end,
-        onSideScroll = function(selected, scrollIndex, args)
-            if args.type == 'tint' then
-                SetVehicleWindowTint(veh, SPZ_Tuners.WindowTints[scrollIndex].index)
-            elseif args.type == 'plateStyle' then
-                SetVehicleNumberPlateTextIndex(veh, SPZ_Tuners.PlateStyles[scrollIndex].index)
-            end
-        end,
-        options = {
-            { label = 'Window Tint Level', values = tintNames, defaultIndex = (curTint + 1), args = { type = 'tint' } },
-            { label = 'License Plate Style', values = plateStyleNames, defaultIndex = (curPlateStyle + 1), args = { type = 'plateStyle' } },
-            { label = 'Custom License Plate Text', description = 'Change text displayed on license plate' }
-        }
-    }, function(selected, scrollIndex, args)
-        if selected == 3 then
-            local input = lib.inputDialog('License Plate Customization', {
-                { type = 'input', label = 'Custom Plate Text', placeholder = 'SPICEZ', max = 8 }
-            })
-            if input and input[1] then
-                SetVehicleNumberPlateText(veh, string.upper(input[1]))
-                lib.notify({ title = 'Plate Text Set', description = ('License plate set to ' .. string.upper(input[1])), type = 'success' })
-            end
-        else
-            lib.notify({ title = 'Options Applied', description = 'Window tint & plate style updated.', type = 'success' })
-        end
-        lib.showMenu('spz_tuner_plate_window')   -- keep open on Enter
-    end)
-
-    lib.showMenu('spz_tuner_plate_window')
-end
-
--- ── 8. Extras & Liveries Submenu ──────────────────────────────────────────────
-function SPZ_Tuners.OpenExtrasMenu()
-    EnableTunerCam(CurrentVehicle, "full")
-    local veh = CurrentVehicle
-
-    local options = {}
-
-    -- Livery
-    local countLivery = GetNumVehicleMods(veh, 48)
-    if countLivery > 0 then
-        local currentL = GetVehicleMod(veh, 48)
-        local valuesL = {}
-        for i = -1, countLivery - 1 do
-            table.insert(valuesL, GetModLabel(veh, 48, i))
-        end
-        table.insert(options, {
-            label = "Vehicle Decals / Livery",
-            values = valuesL,
-            defaultIndex = currentL + 2,
-            args = { isLivery = true }
-        })
-    end
-
-    -- Extras 1-14
-    for i = 1, 14 do
-        if DoesExtraExist(veh, i) then
-            local isOn = IsVehicleExtraTurnedOn(veh, i)
-            table.insert(options, {
-                label = string.format("Vehicle Extra #%d", i),
-                values = { "Disabled", "Enabled" },
-                defaultIndex = isOn and 2 or 1,
-                args = { extraId = i }
-            })
-        end
-    end
-
-    if #options == 0 then
-        lib.notify({ title = 'Extras & Liveries', description = 'No extras or liveries available for this model.', type = 'error' })
-        return
-    end
-
-    lib.registerMenu({
-        id = 'spz_tuner_extras',
-        title = 'Extras & Liveries',
-        position = Config.MenuPosition or 'top-left',
-        onClose = function() lib.showMenu('spz_tuner_main') end,
-        onSideScroll = function(selected, scrollIndex, args)
-            if args.isLivery then
-                SetVehicleMod(veh, 48, scrollIndex - 2, false)
-            elseif args.extraId then
-                SetVehicleExtra(veh, args.extraId, (scrollIndex == 2) and 0 or 1)
-            end
-        end,
-        options = options
-    }, function(selected, scrollIndex, args)
-        if args.isLivery then
-            SetVehicleMod(veh, 48, scrollIndex - 2, false)
-        elseif args.extraId then
-            SetVehicleExtra(veh, args.extraId, (scrollIndex == 2) and 0 or 1)
-        end
-        lib.notify({ title = 'Extra Applied', description = 'Vehicle extra / livery updated.', type = 'success' })
-        lib.showMenu('spz_tuner_extras')   -- keep open on Enter
-    end)
-
-    lib.showMenu('spz_tuner_extras')
+    Open(MainMenu)
 end

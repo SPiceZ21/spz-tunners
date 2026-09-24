@@ -23,6 +23,16 @@ server_scripts {
     'server/main.lua'
 }
 
+files {
+    'data/carcols_gen9.meta',
+    'data/carmodcols_gen9.meta',
+}
+
+-- Fubuki-jo chameleon paints (223-242). stream/vehicle_paint_ramps.ytd holds
+-- their colour ramps.
+data_file 'CARCOLS_GEN9_FILE' 'data/carcols_gen9.meta'
+data_file 'CARMODCOLS_GEN9_FILE' 'data/carmodcols_gen9.meta'
+
 dependencies {
     'ox_lib'
 }

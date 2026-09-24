@@ -60,24 +60,100 @@ SPZ_Tuners.Colors = {
     { label = "Brushed Gold", index = 159 },
 }
 
--- Chameleon & Special DLC Paints (Dynamic based on game build)
+-- Chameleon paints. 161-222 are in the base game from build 2944 (this server
+-- enforces 3407). 223-242, the Fubuki-jo specials, are added by
+-- data/carcols_gen9.meta + data/carmodcols_gen9.meta and painted with
+-- stream/vehicle_paint_ramps.ytd. Those metas used to sit in stream/, where
+-- FiveM never loads a .meta, so the specials never existed; they are now
+-- registered with data_file in fxmanifest.lua.
+SPZ_Tuners.ChameleonColors = {
+    { label = "Anodized Red Pearl", index = 161 },
+    { label = "Anodized Wine Pearl", index = 162 },
+    { label = "Anodized Purple Pearl", index = 163 },
+    { label = "Anodized Blue Pearl", index = 164 },
+    { label = "Anodized Green Pearl", index = 165 },
+    { label = "Anodized Lime Pearl", index = 166 },
+    { label = "Anodized Copper Pearl", index = 167 },
+    { label = "Anodized Bronze Pearl", index = 168 },
+    { label = "Anodized Champagne Pearl", index = 169 },
+    { label = "Anodized Gold Pearl", index = 170 },
+    { label = "Green/Blue Flip", index = 171 },
+    { label = "Green/Red Flip", index = 172 },
+    { label = "Green/Brown Flip", index = 173 },
+    { label = "Green/Turquoise Flip", index = 174 },
+    { label = "Green/Purple Flip", index = 175 },
+    { label = "Teal/Purple Flip", index = 176 },
+    { label = "Turquoise/Red Flip", index = 177 },
+    { label = "Turquoise/Purple Flip", index = 178 },
+    { label = "Cyan/Purple Flip", index = 179 },
+    { label = "Blue/Pink Flip", index = 180 },
+    { label = "Blue/Green Flip", index = 181 },
+    { label = "Purple/Red Flip", index = 182 },
+    { label = "Purple/Green Flip", index = 183 },
+    { label = "Magenta/Green Flip", index = 184 },
+    { label = "Magenta/Yellow Flip", index = 185 },
+    { label = "Burgundy/Green Flip", index = 186 },
+    { label = "Magenta/Cyan Flip", index = 187 },
+    { label = "Copper/Purple Flip", index = 188 },
+    { label = "Magenta/Orange Flip", index = 189 },
+    { label = "Red/Orange Flip", index = 190 },
+    { label = "Orange/Purple Flip", index = 191 },
+    { label = "Orange/Blue Flip", index = 192 },
+    { label = "White/Purple Flip", index = 193 },
+    { label = "Red/Rainbow Flip", index = 194 },
+    { label = "Blue/Rainbow Flip", index = 195 },
+    { label = "Dark Green Pearl", index = 196 },
+    { label = "Dark Teal Pearl", index = 197 },
+    { label = "Dark Blue Pearl", index = 198 },
+    { label = "Dark Purple Pearl", index = 199 },
+    { label = "Oil Slick Pearl", index = 200 },
+    { label = "Light Green Pearl", index = 201 },
+    { label = "Light Blue Pearl", index = 202 },
+    { label = "Light Purple Pearl", index = 203 },
+    { label = "Light Pink Pearl", index = 204 },
+    { label = "Off White Pearl", index = 205 },
+    { label = "Cute Pink Pearl", index = 206 },
+    { label = "Baby Yellow Pearl", index = 207 },
+    { label = "Baby Green Pearl", index = 208 },
+    { label = "Baby Blue Pearl", index = 209 },
+    { label = "Cream Pearl", index = 210 },
+    { label = "White Prismatic Pearl", index = 211 },
+    { label = "Graphite Prismatic Pearl", index = 212 },
+    { label = "Blue Prismatic Pearl", index = 213 },
+    { label = "Purple Prismatic Pearl", index = 214 },
+    { label = "Hot Pink Prismatic Pearl", index = 215 },
+    { label = "Red Prismatic Pearl", index = 216 },
+    { label = "Green Prismatic Pearl", index = 217 },
+    { label = "Black Prismatic Pearl", index = 218 },
+    { label = "Oil Spill Prismatic Pearl", index = 219 },
+    { label = "Rainbow Prismatic Pearl", index = 220 },
+    { label = "Black Holographic Pearl", index = 221 },
+    { label = "White Holographic Pearl", index = 222 },
+    { label = "Fubuki-jo Specials: Monochrome", index = 223 },
+    { label = "Fubuki-jo Specials: Night & Day", index = 224 },
+    { label = "Fubuki-jo Specials: The Verlierer", index = 225 },
+    { label = "Fubuki-jo Specials: Sprunk Extreme", index = 226 },
+    { label = "Fubuki-jo Specials: Vice City", index = 227 },
+    { label = "Fubuki-jo Specials: Synthwave Night", index = 228 },
+    { label = "Fubuki-jo Specials: Four Seasons", index = 229 },
+    { label = "Fubuki-jo Specials: M9 Throwback", index = 230 },
+    { label = "Fubuki-jo Specials: Bubblegum", index = 231 },
+    { label = "Fubuki-jo Specials: Full Rainbow", index = 232 },
+    { label = "Fubuki-jo Specials: Sunset", index = 233 },
+    { label = "Fubuki-jo Specials: The Seven", index = 234 },
+    { label = "Fubuki-jo Specials: Kamen Rider", index = 235 },
+    { label = "Fubuki-jo Specials: Chromatic", index = 236 },
+    { label = "Fubuki-jo Specials: It's Christmas!", index = 237 },
+    { label = "Fubuki-jo Specials: Temperature", index = 238 },
+    { label = "Fubuki-jo Specials: HSW Badge", index = 239 },
+    { label = "Fubuki-jo Specials: Anod. Lightning", index = 240 },
+    { label = "Fubuki-jo Specials: Emeralds", index = 241 },
+    { label = "Fubuki-jo Specials: Fubuki Castle", index = 242 },
+}
+
 function SPZ_Tuners.GetChameleonColors()
-    local build = GetGameBuildNumber()
-    local list = {}
-
-    if build >= 2545 then
-        for i = 161, 167 do
-            table.insert(list, { label = string.format("Chameleon Paint #%d", i - 161 + 1), index = i })
-        end
-    end
-
-    if build >= 2699 then
-        for i = 177, 242 do
-            table.insert(list, { label = string.format("Chameleon Flip #%d", i - 177 + 1), index = i })
-        end
-    end
-
-    return list
+    if GetGameBuildNumber() < 2944 then return {} end
+    return SPZ_Tuners.ChameleonColors
 end
 
 -- Xenon Headlight Colors (GTA V Xenon Light Index: 0 to 12)
@@ -147,4 +223,7 @@ SPZ_Tuners.WheelTypes = {
     { label = "High End", type = 7 },
     { label = "Benny's Original", type = 8 },
     { label = "Benny's Bespoke", type = 9 },
+    { label = "Open Wheel", type = 10 },
+    { label = "Street", type = 11 },
+    { label = "Track", type = 12 },
 }
