@@ -221,6 +221,51 @@ end
 -- actually has installed right now.
 
 local LastIndex = {}
+local ForceClosing = false
+local SaveToken = 0
+
+--- Save the car's current state to the server (statebag + spz-vehicles).
+local function SaveNow()
+    if Config.SaveToVehicleState and DoesEntityExist(CurrentVehicle) then
+        TriggerServerEvent("SPZ:tuner:saveVehicle", VehToNet(CurrentVehicle), SPZ_Tuners.SnapshotVehicle(CurrentVehicle))
+    end
+end
+
+--- Autosave shortly after the last change (debounced so scrolling doesn't spam).
+function SPZ_Tuners.QueueSave()
+    SaveToken = SaveToken + 1
+    local token = SaveToken
+    SetTimeout(1500, function()
+        if token == SaveToken then SaveNow() end
+    end)
+end
+
+--- Menu entry + /save_customs: save the live state, then store the look as the
+--- player's saved custom for this model (spz-vehicles' /savecustom).
+function SPZ_Tuners.SaveCustoms()
+    local veh = DoesEntityExist(CurrentVehicle) and CurrentVehicle or GetVehiclePedIsIn(PlayerPedId(), false)
+    if veh == 0 then
+        lib.notify({ title = 'Tuner', description = 'Get in a vehicle first', type = 'error' })
+        return
+    end
+    CurrentVehicle = veh
+    SaveToken = SaveToken + 1
+    SaveNow()
+    ExecuteCommand('savecustom')
+    lib.notify({ title = 'Customs saved', description = 'Saved for this car model', type = 'success', icon = 'floppy-disk' })
+end
+
+--- Race countdown / grid teleport: shut the tuner and save whatever is on the car.
+function SPZ_Tuners.CloseForRace()
+    if not lib.getOpenMenu() then return end
+    ForceClosing = true
+    lib.hideMenu(false)
+    ForceClosing = false
+    SaveToken = SaveToken + 1
+    lib.hideTextUI()
+    DisableTunerCam()
+    SaveNow()
+end
 
 local function showMenu(id)
     lib.showMenu(id, LastIndex[id] or 1)
@@ -240,7 +285,10 @@ Open = function(def)
         return
     end
 
+    -- With AutoApply every ←/→ change is kept (and autosaved), so there is
+    -- nothing to put back.
     local function restoreAll()
+        if Config.AutoApply then return end
         for _, o in ipairs(options) do
             if o.restore then o.restore() end
         end
@@ -260,10 +308,14 @@ Open = function(def)
         onSideScroll = function(selected, scrollIndex)
             sound('NAV_UP_DOWN')
             local o = options[selected]
-            if o and o.set then o.set(scrollIndex) end
+            if o and o.set then
+                o.set(scrollIndex)
+                if Config.AutoApply then SPZ_Tuners.QueueSave() end
+            end
         end,
         onClose = function()
             restoreAll()
+            if ForceClosing then return end   -- race start: SPZ_Tuners.CloseForRace cleans up
             if def.onClose then def.onClose() end
             if def.parent then showMenu(def.parent) end
         end,
@@ -278,7 +330,13 @@ Open = function(def)
         if o.action then return o.action() end
 
         local duplicate, text = o.set(scrollIndex)
-        if not Install(duplicate, text) and o.restore then o.restore() end
+        if Config.AutoApply then
+            -- Already applied while scrolling; Enter just confirms it.
+            Install(false, text)
+            SPZ_Tuners.QueueSave()
+        elseif not Install(duplicate, text) and o.restore then
+            o.restore()
+        end
 
         options = def.build()
         lib.setMenuOptions(def.id, options)
@@ -738,14 +796,22 @@ MainMenu = {
         if hasExtras(veh) then
             options[#options + 1] = { label = 'Extras', close = true, submenu = ExtrasMenu }
         end
+        options[#options + 1] = {
+            label = 'Save Customs',
+            description = '/save_customs · keep this look for this car model',
+            close = true,
+            action = function()
+                SPZ_Tuners.SaveCustoms()
+                Open(MainMenu)
+            end,
+        }
         return options
     end,
     onClose = function()
         lib.hideTextUI()
         DisableTunerCam()
-        if Config.SaveToVehicleState and DoesEntityExist(CurrentVehicle) then
-            TriggerServerEvent("SPZ:tuner:saveVehicle", VehToNet(CurrentVehicle), SPZ_Tuners.SnapshotVehicle(CurrentVehicle))
-        end
+        SaveToken = SaveToken + 1
+        SaveNow()
     end,
 }
 

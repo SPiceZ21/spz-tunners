@@ -49,6 +49,13 @@ if Config.EnableCommand then
     end, false)
 end
 
+RegisterCommand('save_customs', function() SPZ_Tuners.SaveCustoms() end, false)
+
+-- Race start: close the tuner (autosaving) when the grid teleport / countdown fires.
+for _, ev in ipairs({ 'SPZ:tpToGrid', 'SPZ:countdown', 'SPZ:go' }) do
+    RegisterNetEvent(ev, function() SPZ_Tuners.CloseForRace() end)
+end
+
 -- Export to open tuner menu from other scripts / garages
 exports('OpenTunerMenu', function(targetVeh)
     local veh = targetVeh or GetVehiclePedIsIn(PlayerPedId(), false)

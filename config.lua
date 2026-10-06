@@ -16,6 +16,10 @@ Config.EnableDynamicCamera = true  -- Smoothly orbits/focuses on the part being 
 Config.FreeTuning = true          -- Set to true for free tuning, or false to charge money
 Config.DefaultModPrice = 500      -- Price per modification if FreeTuning = false
 
+-- Auto apply: ←/→ keeps the option on the car straight away (no Enter needed) and
+-- autosaves. Set false for the old preview-then-Enter behaviour.
+Config.AutoApply = true
+
 -- Preset Saving Integration
 Config.SaveToDatabase = true       -- Automatically save presets to database if available
 Config.SaveToVehicleState = true   -- Update FiveM vehicle statebags & spz-vehicles if active
