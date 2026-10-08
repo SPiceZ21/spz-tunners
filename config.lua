@@ -21,7 +21,6 @@ Config.DefaultModPrice = 500      -- Price per modification if FreeTuning = fals
 Config.AutoApply = true
 
 -- Preset Saving Integration
-Config.SaveToDatabase = true       -- Automatically save presets to database if available
 Config.SaveToVehicleState = true   -- Update FiveM vehicle statebags & spz-vehicles if active
 
 -- Tuner Shop Locations (Garages)

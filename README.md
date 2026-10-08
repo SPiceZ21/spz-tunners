@@ -53,7 +53,6 @@ changed. Standalone apart from `ox_lib`.
 exports['spz-tunners']:OpenTunerMenu()
 local mods = exports['spz-tunners']:GetVehicleMods(vehicle)
 exports['spz-tunners']:ApplyVehicleMods(vehicle, mods)
-exports['spz-tunners']:SaveTunerPreset(vehicle)
 ```
 
 ## Commands

@@ -23,13 +23,3 @@ RegisterNetEvent("SPZ:tuner:saveVehicle", function(netId, preset)
     end
 end)
 
--- Server Export to save tuning preset
-exports("SaveTunerPreset", function(source, netId, preset)
-    if not netId or not preset then return false end
-    local vehicle = NetworkGetEntityFromNetworkId(netId)
-    if DoesEntityExist(vehicle) then
-        Entity(vehicle).state:set("tunerPreset", preset, true)
-        return true
-    end
-    return false
-end)
