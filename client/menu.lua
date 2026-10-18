@@ -204,7 +204,7 @@ local function Install(duplicate, description)
         lib.notify({ title = 'Tuner', description = 'Already installed', type = 'error' })
         return false
     end
-    lib.notify({ title = 'Installed', description = description, type = 'success', icon = 'wrench', position = 'top' })
+    lib.notify({ title = 'Installed', description = description, type = 'success', icon = 'wrench' })
     sound('PICK_UP')
     return true
 end
