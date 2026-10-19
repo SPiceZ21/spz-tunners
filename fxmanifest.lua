@@ -2,8 +2,8 @@ fx_version 'cerulean'
 game 'gta5'
 
 name 'spz-tunners'
-description 'SPiceZ-Core — vehicle tuning & customization (NUI menu, drag camera)'
-version '1.2.1'
+description 'SPiceZ-Core — Dynamic Keyboard-Driven Vehicle Tuning & Customization Resource built with ox_lib'
+version '1.2.2'
 author 'SPiceZ'
 
 shared_scripts {
