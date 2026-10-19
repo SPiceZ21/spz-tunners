@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>SPZ Tuner</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="root" class="hidden">
+    <!-- everything off the panel: drag to orbit the camera, scroll to zoom -->
+    <div id="stage"></div>
+
+    <aside id="panel">
+      <header class="p-head">
+        <div class="p-top">
+          <div id="crumbs" class="crumbs"></div>
+          <button id="close" class="x" title="Close (Esc at the top level)">✕</button>
+        </div>
+        <h1 id="title">Customs</h1>
+      </header>
+
+      <div id="list" class="list"></div>
+
+      <footer class="p-foot">
+        <span><kbd>↑</kbd><kbd>↓</kbd> Select</span>
+        <span><kbd>←</kbd><kbd>→</kbd> Change</span>
+        <span><kbd>Enter</kbd> Open / Install</span>
+        <span><kbd>Bksp</kbd> Back</span>
+      </footer>
+    </aside>
+
+    <div id="camhint" class="camhint">
+      <span><b>Drag</b> Orbit</span>
+      <span><b>Scroll</b> Zoom</span>
+      <span><kbd>D</kbd> Doors</span>
+      <span><kbd>V</kbd> View</span>
+    </div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -2,7 +2,7 @@ fx_version 'cerulean'
 game 'gta5'
 
 name 'spz-tunners'
-description 'SPiceZ-Core — Dynamic Keyboard-Driven Vehicle Tuning & Customization Resource built with ox_lib'
+description 'SPiceZ-Core — vehicle tuning & customization (NUI menu, drag camera)'
 version '1.2.1'
 author 'SPiceZ'
 
@@ -23,9 +23,15 @@ server_scripts {
     'server/main.lua'
 }
 
+ui_page 'ui/index.html'
+
 files {
     'data/carcols_gen9.meta',
     'data/carmodcols_gen9.meta',
+    'ui/index.html',
+    'ui/style.css',
+    'ui/app.js',
+    'ui/fonts/*.ttf',
 }
 
 -- Fubuki-jo chameleon paints (223-242). stream/vehicle_paint_ramps.ytd holds

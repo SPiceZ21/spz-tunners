@@ -3,9 +3,10 @@
 --
 --   * One camera for the whole tuner session. It opens with the main menu and
 --     closes with it; moving between submenus does not reframe it.
---   * The cursor is on screen. Hold left mouse and drag to orbit the car.
---   * Scroll zooms (2.5 – 10 m), Space opens / shuts every door, V toggles
---     first-person view.
+--   * The tuner is an NUI page (ui/), which owns the mouse and keyboard while
+--     open, so the page sends camera input here: drag anywhere off the panel to
+--     orbit, scroll to zoom (2.5 – 10 m), D opens / shuts every door, V toggles
+--     first-person view (TunerCamDrag / Zoom / Doors / View below).
 --   * While the tuner is open the car cannot be driven: throttle, brake,
 --     steering and the radio are disabled.
 --
@@ -16,12 +17,10 @@ local cam         = nil
 local currentVeh  = nil
 local isCamActive = false
 local firstPerson = false
-local scaleform   = nil
 
 local yaw, pitch = 0.0, 0.0
 local radius     = 5.0
 
-local SENSITIVITY = 8.0
 local RADIUS_MIN, RADIUS_MAX, ZOOM_STEP = 2.5, 10.0, 0.5
 
 local function place()
@@ -44,48 +43,6 @@ local function toggleDoors()
     end
 end
 
--- ── Instructional buttons ────────────────────────────────────────────────────
-
-local function button(slot, control, text)
-    BeginScaleformMovieMethod(scaleform, 'SET_DATA_SLOT')
-    ScaleformMovieMethodAddParamInt(slot)
-    ScaleformMovieMethodAddParamPlayerNameString(GetControlInstructionalButton(0, control, true))
-    BeginTextCommandScaleformString('STRING')
-    AddTextComponentSubstringKeyboardDisplay(text)
-    EndTextCommandScaleformString()
-    EndScaleformMovieMethod()
-end
-
-local function drawButtons()
-    CreateThread(function()
-        scaleform = RequestScaleformMovie('instructional_buttons')
-        while not HasScaleformMovieLoaded(scaleform) do Wait(0) end
-
-        BeginScaleformMovieMethod(scaleform, 'CLEAR_ALL')
-        EndScaleformMovieMethod()
-        button(1, 14, 'Zoom out')
-        button(2, 15, 'Zoom in')
-        button(3, 22, 'Toggle doors')
-        button(4, 0, 'Change view')
-        BeginScaleformMovieMethod(scaleform, 'DRAW_INSTRUCTIONAL_BUTTONS')
-        EndScaleformMovieMethod()
-
-        BeginScaleformMovieMethod(scaleform, 'SET_BACKGROUND_COLOUR')
-        ScaleformMovieMethodAddParamInt(0)
-        ScaleformMovieMethodAddParamInt(0)
-        ScaleformMovieMethodAddParamInt(0)
-        ScaleformMovieMethodAddParamInt(80)
-        EndScaleformMovieMethod()
-
-        while isCamActive do
-            DrawScaleformMovieFullscreen(scaleform, 255, 255, 255, 255, 0)
-            Wait(0)
-        end
-        SetScaleformMovieAsNoLongerNeeded(scaleform)
-        scaleform = nil
-    end)
-end
-
 -- ── Input ────────────────────────────────────────────────────────────────────
 
 -- On foot / combat inputs that would fire while you click around the car.
@@ -99,61 +56,45 @@ local function disableAll(list)
     for _, c in ipairs(list) do DisableControlAction(0, c, true) end
 end
 
-local function dragLoop()
+local function inputLoop()
     CreateThread(function()
         while isCamActive do
-            local dx = GetDisabledControlNormal(0, 1) * SENSITIVITY
-            local dy = GetDisabledControlNormal(0, 2) * SENSITIVITY
-            yaw   = yaw - dx
-            pitch = math.max(0.0, math.min(89.0, pitch + dy))
-            place()
-
-            if IsDisabledControlJustReleased(0, 24) or IsControlJustReleased(0, 24) then
-                SetMouseCursorSprite(3)
-                return
-            end
+            disableAll(PLAYER_CONTROLS)
+            disableAll(DRIVE_CONTROLS)
+            disableAll(CAM_CONTROLS)
             Wait(0)
         end
     end)
 end
 
-local function inputLoop()
-    CreateThread(function()
-        while isCamActive do
-            DisableControlAction(0, 0, true)   -- V: handled below
-            disableAll(PLAYER_CONTROLS)
-            disableAll(DRIVE_CONTROLS)
+-- ── Driven by the NUI page (client/menu.lua forwards these) ──────────────────
 
-            if not firstPerson then
-                SetMouseCursorActiveThisFrame()
-                disableAll(CAM_CONTROLS)
-                if IsDisabledControlJustPressed(0, 24) or IsControlJustPressed(0, 24) then
-                    SetMouseCursorSprite(4)
-                    dragLoop()
-                end
-            end
+function TunerCamDrag(dx, dy)
+    if not isCamActive or firstPerson then return end
+    yaw   = yaw - (tonumber(dx) or 0) * 0.25
+    pitch = math.max(0.0, math.min(89.0, pitch + (tonumber(dy) or 0) * 0.25))
+    place()
+end
 
-            if IsDisabledControlJustReleased(0, 14) or IsControlJustReleased(0, 14) then
-                if radius + ZOOM_STEP <= RADIUS_MAX then radius = radius + ZOOM_STEP; place() end
-            elseif IsDisabledControlJustReleased(0, 15) or IsControlJustReleased(0, 15) then
-                if radius - ZOOM_STEP >= RADIUS_MIN then radius = radius - ZOOM_STEP; place() end
-            end
+function TunerCamZoom(dir)
+    if not isCamActive then return end
+    radius = math.max(RADIUS_MIN, math.min(RADIUS_MAX, radius + (dir > 0 and ZOOM_STEP or -ZOOM_STEP)))
+    place()
+end
 
-            if IsControlJustPressed(0, 22) then toggleDoors() end
+function TunerCamDoors()
+    if isCamActive and currentVeh then toggleDoors() end
+end
 
-            if IsDisabledControlJustPressed(0, 0) then
-                firstPerson = not firstPerson
-                if firstPerson then
-                    SetCamViewModeForContext(1, 4)
-                    RenderScriptCams(false, true, 0, true, false)
-                else
-                    RenderScriptCams(true, true, 0, true, false)
-                end
-            end
-
-            Wait(0)
-        end
-    end)
+function TunerCamView()
+    if not isCamActive then return end
+    firstPerson = not firstPerson
+    if firstPerson then
+        SetCamViewModeForContext(1, 4)
+        RenderScriptCams(false, true, 0, true, false)
+    else
+        RenderScriptCams(true, true, 0, true, false)
+    end
 end
 
 -- ── API (used by client/menu.lua) ────────────────────────────────────────────
@@ -175,8 +116,7 @@ function EnableTunerCam(vehicle, targetFocus)
     isCamActive = true
 
     place()          -- otherwise the cam sits on the player until the first drag
-    drawButtons()
-    inputLoop()
+    inputLoop()      -- key hints live in the NUI page now (no scaleform buttons)
 end
 
 function DisableTunerCam()
@@ -197,9 +137,7 @@ CreateThread(function()
     while true do
         Wait(400)
         if isCamActive then
-            local m = lib and lib.getOpenMenu and lib.getOpenMenu()
-            local tunerOpen = type(m) == 'string' and m:sub(1, 10) == 'spz_tuner_'
-            if tunerOpen then
+            if SPZ_Tuners and SPZ_Tuners.IsOpen and SPZ_Tuners.IsOpen() then
                 misses = 0
             else
                 misses = misses + 1              -- ~0.8s grace for menu-to-menu hops

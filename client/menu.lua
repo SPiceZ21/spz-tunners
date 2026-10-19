@@ -1,7 +1,8 @@
 -- client/menu.lua
--- Tuner menus — same behaviour as qbx_customs:
+-- Tuner menus, drawn by the NUI page in ui/ (the menu definitions below are
+-- renderer-agnostic: options with value lists, submenus or actions).
 --
---   * ←/→ previews an option on the car. Nothing is kept until you press Enter.
+--   * ←/→ (or the arrows on a row) changes an option on the car.
 --   * Enter installs it: "<part> installed" + the pick-up chime. Picking what is
 --     already on the car says "Already installed" instead.
 --   * Leaving a menu (Backspace) puts every un-installed preview back.
@@ -221,7 +222,6 @@ end
 -- actually has installed right now.
 
 local LastIndex = {}
-local ForceClosing = false
 local SaveToken = 0
 
 --- Save the car's current state to the server (statebag + spz-vehicles).
@@ -255,96 +255,167 @@ function SPZ_Tuners.SaveCustoms()
     lib.notify({ title = 'Customs saved', description = 'Saved for this car model', type = 'success', icon = 'floppy-disk' })
 end
 
---- Race countdown / grid teleport: shut the tuner and save whatever is on the car.
-function SPZ_Tuners.CloseForRace()
-    if not lib.getOpenMenu() then return end
-    ForceClosing = true
-    lib.hideMenu(false)
-    ForceClosing = false
-    SaveToken = SaveToken + 1
-    lib.hideTextUI()
-    DisableTunerCam()
-    SaveNow()
+-- ── NUI renderer ─────────────────────────────────────────────────────────────
+
+local isOpen = false
+local Defs   = {}      -- [id] = definition, so a submenu can find its parent
+local Cur    = nil     -- { def, options, vals = { [row] = value index } }
+
+function SPZ_Tuners.IsOpen() return isOpen end
+
+local function focus(on)
+    SetNuiFocus(on, on)
+    SetNuiFocusKeepInput(false)
 end
 
-local function showMenu(id)
-    lib.showMenu(id, LastIndex[id] or 1)
+local function pushTheme()
+    local ok, theme = pcall(function() return exports['spz-core']:GetTheme() end)
+    if ok and theme then SendNUIMessage({ action = 'theme', theme = theme }) end
+end
+
+local function render(def, options, selected)
+    Cur = { def = def, options = options, vals = {} }
+    local rows = {}
+    for i, o in ipairs(options) do
+        if o.values then Cur.vals[i] = o.defaultIndex or 1 end
+        rows[i] = {
+            label  = o.label,
+            desc   = o.description,
+            values = o.values,
+            index  = Cur.vals[i],
+            kind   = o.submenu and 'submenu' or o.action and 'action' or 'value',
+        }
+    end
+    local crumbs, d = {}, def
+    while d do
+        table.insert(crumbs, 1, d.title)
+        d = d.parent and Defs[d.parent] or nil
+    end
+    SendNUIMessage({ action = 'menu', data = {
+        id = def.id, title = def.title, crumbs = crumbs, options = rows,
+        selected = selected or LastIndex[def.id] or 1,
+    } })
+end
+
+local function closeUI()
+    isOpen, Cur = false, nil
+    focus(false)
+    SendNUIMessage({ action = 'close' })
+end
+
+local function restoreAll(options)
+    if Config.AutoApply then return end   -- every change is already kept
+    for _, o in ipairs(options or {}) do
+        if o.restore then o.restore() end
+    end
 end
 
 local Open
-
-Open = function(def)
-    -- A dialog (plate text) closes the menu for a moment and the camera
-    -- watchdog takes the cam down; bring it back with the menu. No-op when on.
-    EnableTunerCam(CurrentVehicle)
+Open = function(def, selected)
+    Defs[def.id] = def
+    EnableTunerCam(CurrentVehicle)   -- no-op when already on
 
     local options = def.build()
     if #options == 0 then
         lib.notify({ title = 'Tuner', description = def.empty or 'Nothing to change here', type = 'inform' })
-        if def.parent then showMenu(def.parent) end
+        if def.parent and Defs[def.parent] then return Open(Defs[def.parent]) end
         return
     end
 
-    -- With AutoApply every ←/→ change is kept (and autosaved), so there is
-    -- nothing to put back.
-    local function restoreAll()
-        if Config.AutoApply then return end
-        for _, o in ipairs(options) do
-            if o.restore then o.restore() end
-        end
+    if not isOpen then
+        isOpen = true
+        pushTheme()
+        SendNUIMessage({ action = 'open' })
     end
-
-    lib.registerMenu({
-        id = def.id,
-        title = def.title,
-        position = Config.MenuPosition or 'top-left',
-        canClose = true,
-        disableInput = false,
-        options = options,
-        onSelected = function(selected)
-            sound('NAV_UP_DOWN')
-            LastIndex[def.id] = selected
-        end,
-        onSideScroll = function(selected, scrollIndex)
-            sound('NAV_UP_DOWN')
-            local o = options[selected]
-            if o and o.set then
-                o.set(scrollIndex)
-                if Config.AutoApply then SPZ_Tuners.QueueSave() end
-            end
-        end,
-        onClose = function()
-            restoreAll()
-            if ForceClosing then return end   -- race start: SPZ_Tuners.CloseForRace cleans up
-            if def.onClose then def.onClose() end
-            if def.parent then showMenu(def.parent) end
-        end,
-    }, function(selected, scrollIndex)
-        local o = options[selected]
-        restoreAll()
-
-        if o.submenu then
-            LastIndex[o.submenu.id] = 1
-            return Open(o.submenu)
-        end
-        if o.action then return o.action() end
-
-        local duplicate, text = o.set(scrollIndex)
-        if Config.AutoApply then
-            -- Already applied while scrolling; Enter just confirms it.
-            Install(false, text)
-            SPZ_Tuners.QueueSave()
-        elseif not Install(duplicate, text) and o.restore then
-            o.restore()
-        end
-
-        options = def.build()
-        lib.setMenuOptions(def.id, options)
-        showMenu(def.id)
-    end)
-
-    showMenu(def.id)
+    focus(true)
+    render(def, options, selected)
 end
+
+--- Back one level; at the top this closes the tuner (main menu's onClose saves).
+local function back()
+    if not Cur then return end
+    local def = Cur.def
+    restoreAll(Cur.options)
+    if def.onClose then def.onClose() end
+    if def.parent and Defs[def.parent] then Open(Defs[def.parent]) else closeUI() end
+end
+
+--- Close the whole tuner from any depth (X button / race start).
+local function exitAll()
+    if not Cur then closeUI(); return end
+    restoreAll(Cur.options)
+    local root = Cur.def
+    while root.parent and Defs[root.parent] do root = Defs[root.parent] end
+    closeUI()
+    if root.onClose then root.onClose() end
+end
+
+--- Race countdown / grid teleport: shut the tuner and save whatever is on the car.
+function SPZ_Tuners.CloseForRace()
+    if not isOpen then return end
+    exitAll()
+end
+
+RegisterNUICallback('hover', function(d, cb)
+    cb(1)
+    if Cur and d and d.i then
+        LastIndex[Cur.def.id] = d.i
+        sound('NAV_UP_DOWN')
+    end
+end)
+
+RegisterNUICallback('scroll', function(d, cb)
+    cb(1)
+    local o = Cur and d and Cur.options[d.i]
+    if not (o and o.set and d.v) then return end
+    Cur.vals[d.i] = d.v
+    sound('NAV_LEFT_RIGHT')
+    o.set(d.v)
+    if Config.AutoApply then SPZ_Tuners.QueueSave() end
+end)
+
+RegisterNUICallback('select', function(d, cb)
+    cb(1)
+    if not (Cur and d and d.i) then return end
+    local def, options = Cur.def, Cur.options
+    local o = options[d.i]
+    if not o then return end
+    LastIndex[def.id] = d.i
+    sound('SELECT')
+
+    if o.submenu then
+        restoreAll(options)
+        LastIndex[o.submenu.id] = 1
+        return Open(o.submenu)
+    end
+    if o.action then return o.action() end
+
+    local v = d.v or Cur.vals[d.i] or 1
+    local duplicate, text = o.set(v)
+    if Config.AutoApply then
+        Install(false, text)          -- already on the car from scrolling; Enter confirms
+        SPZ_Tuners.QueueSave()
+    elseif not Install(duplicate, text) and o.restore then
+        o.restore()
+    end
+    Open(def, d.i)                    -- rebuild: "installed" is now the new value
+end)
+
+RegisterNUICallback('back', function(_, cb) cb(1); sound('BACK'); back() end)
+RegisterNUICallback('exit', function(_, cb) cb(1); exitAll() end)
+
+RegisterNUICallback('cam', function(d, cb)
+    cb(1)
+    if not d then return end
+    if d.t == 'drag' then TunerCamDrag(d.dx, d.dy)
+    elseif d.t == 'zoom' then TunerCamZoom(d.dir or 1)
+    elseif d.t == 'doors' then TunerCamDoors()
+    elseif d.t == 'view' then TunerCamView() end
+end)
+
+AddEventHandler('onResourceStop', function(res)
+    if res == GetCurrentResourceName() and isOpen then focus(false) end
+end)
 
 -- Reusable option builders ----------------------------------------------------
 
@@ -519,6 +590,7 @@ local PartsMenu = {
         options[#options + 1] = {
             label = 'Plate Text', description = GetVehicleNumberPlateText(veh), close = true,
             action = function()
+                focus(false)
                 local input = lib.inputDialog('License Plate', {
                     { type = 'input', label = 'Plate text', placeholder = 'SPICEZ', max = 8, required = true },
                 })
@@ -808,7 +880,6 @@ MainMenu = {
         return options
     end,
     onClose = function()
-        lib.hideTextUI()
         DisableTunerCam()
         SaveToken = SaveToken + 1
         SaveNow()
@@ -817,17 +888,10 @@ MainMenu = {
 
 function SPZ_Tuners.OpenTunerMenu(vehicle)
     if not DoesEntityExist(vehicle) then return end
-    if lib.getOpenMenu() then return end   -- already in the tuner
+    if isOpen then return end   -- already in the tuner
 
     CurrentVehicle = vehicle
     SetVehicleModKit(vehicle, 0)
     LastIndex = {}
-
-    lib.showTextUI("[↑/↓] Navigate  |  [←/→] Preview  |  [ENTER] Install  |  [BACKSPACE] Back", {
-        position = "top-center",
-        icon = "wrench",
-        style = { borderRadius = 4, backgroundColor = "#1E293B", color = "#F8FAFC" },
-    })
-
     Open(MainMenu)
 end
