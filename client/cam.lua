@@ -102,7 +102,25 @@ end
 --- Starts the session camera the first time; later calls (submenus) keep the
 --- camera where the player left it, as qbx_customs does. `targetFocus` is
 --- accepted for compatibility and ignored.
+-- The car is stopped and held for the whole session. Opening the tuner on the
+-- move used to leave it rolling off while the camera stayed behind.
+local heldVeh = nil
+
+local function holdVehicle(vehicle)
+    if heldVeh or not vehicle or not DoesEntityExist(vehicle) then return end
+    heldVeh = vehicle
+    SetVehicleForwardSpeed(vehicle, 0.0)
+    SetEntityVelocity(vehicle, 0.0, 0.0, 0.0)
+    FreezeEntityPosition(vehicle, true)
+end
+
+local function releaseVehicle()
+    if heldVeh and DoesEntityExist(heldVeh) then FreezeEntityPosition(heldVeh, false) end
+    heldVeh = nil
+end
+
 function EnableTunerCam(vehicle, targetFocus)
+    holdVehicle(vehicle)
     if not Config.EnableDynamicCamera then return end
     if isCamActive or not DoesEntityExist(vehicle) then return end
 
@@ -120,6 +138,7 @@ function EnableTunerCam(vehicle, targetFocus)
 end
 
 function DisableTunerCam()
+    releaseVehicle()
     if not isCamActive then return end
     isCamActive = false
     RenderScriptCams(false, true, 0, true, false)
@@ -136,7 +155,7 @@ CreateThread(function()
     local misses = 0
     while true do
         Wait(400)
-        if isCamActive then
+        if isCamActive or heldVeh then
             if SPZ_Tuners and SPZ_Tuners.IsOpen and SPZ_Tuners.IsOpen() then
                 misses = 0
             else

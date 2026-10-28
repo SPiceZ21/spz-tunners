@@ -11,7 +11,7 @@
 --
 -- Menu tree:
 --   Main ─ Performance
---        ─ Parts ─ (body + interior mods, plate style, plate text) ─ Wheels
+--        ─ Parts ─ (body + interior mods, plate style) ─ Wheels
 --        ─ Cosmetics & Colors ─ Primary Paint, Secondary Paint, Neon (submenus)
 --                             ─ xenon, pearlescent, wheel colour, window tint,
 --                               tyre smoke, interior colour, livery
@@ -273,6 +273,31 @@ local function pushTheme()
     if ok and theme then SendNUIMessage({ action = 'theme', theme = theme }) end
 end
 
+-- The car card (top-left). Model stats only, read once per open: they describe
+-- the car, not the parts on it, so they do not move as mods are installed.
+local function pushVehicle()
+    local veh = CurrentVehicle
+    if not veh or veh == 0 or not DoesEntityExist(veh) then return end
+    local model = GetEntityModel(veh)
+    local function lbl(k)
+        local t = k and GetLabelText(k)
+        return (t and t ~= 'NULL') and t or (k or '')
+    end
+    local function scale(v, max) return math.max(0.0, math.min(10.0, (v or 0) / max * 10.0)) end
+    local p = type(LocalPlayer.state.profile) == 'table' and LocalPlayer.state.profile or {}
+    SendNUIMessage({ action = 'vehicle', data = {
+        make    = lbl(GetMakeNameFromVehicleModel(model)),
+        name    = lbl(GetDisplayNameFromVehicleModel(model)),
+        credits = tonumber(p.credits),
+        stats   = {
+            { label = 'Top Speed',    v = scale(GetVehicleModelEstimatedMaxSpeed(model), 60.0) },
+            { label = 'Acceleration', v = scale(GetVehicleModelAcceleration(model), 0.5) },
+            { label = 'Braking',      v = scale(GetVehicleModelMaxBraking(model), 1.5) },
+            { label = 'Handling',     v = scale(GetVehicleModelMaxTraction(model), 3.5) },
+        },
+    } })
+end
+
 local function render(def, options, selected)
     Cur = { def = def, options = options, vals = {} }
     local rows = {}
@@ -326,6 +351,7 @@ Open = function(def, selected)
         isOpen = true
         pushTheme()
         SendNUIMessage({ action = 'open' })
+        pushVehicle()
     end
     focus(true)
     render(def, options, selected)
@@ -586,23 +612,6 @@ local PartsMenu = {
         if GetVehicleClass(veh) ~= 13 then
             options[#options + 1] = { label = 'Wheels', description = 'Rims by category, custom tires', close = true, submenu = WheelsMenu }
         end
-
-        options[#options + 1] = {
-            label = 'Plate Text', description = GetVehicleNumberPlateText(veh), close = true,
-            action = function()
-                focus(false)
-                local input = lib.inputDialog('License Plate', {
-                    { type = 'input', label = 'Plate text', placeholder = 'SPICEZ', max = 8, required = true },
-                })
-                local text = input and input[1] and input[1]:upper():sub(1, 8)
-                if text and text ~= '' then
-                    local same = (GetVehicleNumberPlateText(veh):gsub('%s+$', '')) == text
-                    if not same then SetVehicleNumberPlateText(veh, text) end
-                    Install(same, 'Plate text: ' .. text)
-                end
-                Open(PartsMenu)
-            end,
-        }
 
         table.sort(options, byLabel)
         return options

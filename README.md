@@ -15,7 +15,7 @@ changed. Standalone apart from `ox_lib`.
   - ←/→ previews on the car; Enter installs ("Installed" + chime), or says "Already installed".
   - Backspace leaves a menu and puts back anything you previewed but didn't install.
   - Backing out returns to the row you came from; a damaged car gets a Repair-only menu.
-  - Tree: Performance · Parts (body + interior mods, plate style/text, Wheels) · Cosmetics &
+  - Tree: Performance · Parts (body + interior mods, plate style, Wheels) · Cosmetics &
     Colors (Primary/Secondary paint, Neon, xenon, pearlescent, wheel colour, tint, tyre
     smoke, interior, livery) · Extras.
 - **Dynamic inspection** — only shows the mods, wheels, liveries and extras the car actually has.
