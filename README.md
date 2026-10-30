@@ -1,68 +1,62 @@
 # spz-tunners
 
-> Keyboard-driven vehicle tuning and customization · `v1.0.0`
+> Keyboard-driven tuning and customisation menu.
+
+![version](https://img.shields.io/badge/version-1.2.3-ff6200) ![SPiceZ-Core](https://img.shields.io/badge/SPiceZ--Core-beta-18181b)
 
 ## Overview
 
-`spz-tunners` is a tuning menu built entirely on `ox_lib`'s keyboard menu (the mouse only drives the camera), no
-NUI. It inspects the vehicle for available mods, colours, wheels, extras and neons,
-previews each option live as you scroll, and moves a cinematic camera to the part being
-changed. Standalone apart from `ox_lib`.
+A full tuning menu built on ox_lib: performance parts, body parts, paint (incl. chameleon), wheels, neon, liveries. Used in freeroam, in race warmup (`Y`) and by Hot Pursuit's car setup.
 
 ## Features
 
-- **qbx_customs-style menu** via `lib.registerMenu`:
-  - ←/→ previews on the car; Enter installs ("Installed" + chime), or says "Already installed".
-  - Backspace leaves a menu and puts back anything you previewed but didn't install.
-  - Backing out returns to the row you came from; a damaged car gets a Repair-only menu.
-  - Tree: Performance · Parts (body + interior mods, plate style, Wheels) · Cosmetics &
-    Colors (Primary/Secondary paint, Neon, xenon, pearlescent, wheel colour, tint, tyre
-    smoke, interior, livery) · Extras.
-- **Dynamic inspection** — only shows the mods, wheels, liveries and extras the car actually has.
-- **Drag camera** (same behaviour as qbx_customs) — one camera for the whole session; the
-  cursor stays on screen, hold left mouse and drag to orbit, scroll to zoom, Space toggles
-  the doors, V switches to first person. The car can't be driven while the tuner is open.
-- **Chameleon paints** — all 82 named chameleons (161–242), for the whole car, primary,
-  secondary or pearlescent. 223–242 (Fubuki-jo specials) come from `data/*.meta`, registered
-  with `data_file`, plus `stream/vehicle_paint_ramps.ytd`. Needs game build 2944+.
-- **Shop zones** — garage markers plus `/tune` anywhere, and exports for other resources.
+- Performance and cosmetic parts
+- Chameleon paints
+- Saved and re-applied by spz-vehicles
 
-## Structure
+## Requirements
 
-| Side | File | Purpose |
-|---|---|---|
-| Shared | `config.lua` | Shop locations, camera and menu configuration |
-| Shared | `shared/colors.lua` | Colour palettes, neons, xenons, wheels |
-| Client | `client/main.lua` | Commands, shop zones, prompts, exports |
-| Client | `client/menu.lua` | Menu builder and live preview engine |
-| Client | `client/cam.lua` | Cinematic camera positioning |
-| Server | `server/main.lua` | Statebag persistence and database writes |
-
-## Controls
-
-| Key | Action |
+| Resource | Type |
 |---|---|
-| ↑ / ↓ | Navigate menu items |
-| ← / → | Side-scroll options with live preview |
-| `ENTER` | Apply and confirm |
-| `BACKSPACE` / `ESC` | Back / exit |
+| `ox_lib` | third-party |
 
-## Exports
+## Installation
 
-```lua
-exports['spz-tunners']:OpenTunerMenu()
-local mods = exports['spz-tunners']:GetVehicleMods(vehicle)
-exports['spz-tunners']:ApplyVehicleMods(vehicle, mods)
+Included in the [txAdmin recipe](https://github.com/SPiceZ21/spz-txrecipe). Manual install:
+
+1. Download `spz-tunners` from GitHub (latest release, or the repository) into your `resources` folder.
+2. Add to `server.cfg`, after its requirements:
+
+```cfg
+ensure spz-tunners
 ```
+
+## Configuration
+
+- `config.lua`
+
+See the file for every option.
 
 ## Commands
 
-`/tune` · `/customs`
+| Command | Who | Description |
+|---|---|---|
+| `/customs` | player | Open customs |
+| `/save_customs` | player | Save the current setup |
+| `/tune` | player | Open the tuner |
 
-## Dependencies
+## Exports
 
-`ox_lib`
+| Export | Side |
+|---|---|
+| `ApplyVehicleMods` | client |
+| `GetVehicleMods` | client |
+| `OpenTunerMenu` | client |
+
+```lua
+exports["spz-tunners"]:ApplyVehicleMods(...)
+```
 
 ---
 
-Part of [SPiceZ-Core](../README.md) · GPL-3.0
+Part of **SPiceZ-Core** — [documentation](https://github.com/SPiceZ21/Docs) · [all modules](https://github.com/SPiceZ21/Docs/blob/main/modules/README.md)
