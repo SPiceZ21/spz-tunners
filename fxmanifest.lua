@@ -3,7 +3,7 @@ game 'gta5'
 
 name 'spz-tunners'
 description 'SPiceZ-Core — Dynamic Keyboard-Driven Vehicle Tuning & Customization Resource built with ox_lib'
-version '1.3.0'
+version '1.3.1'
 author 'SPiceZ'
 
 shared_scripts {
