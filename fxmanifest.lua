@@ -13,6 +13,7 @@ shared_scripts {
 }
 
 client_scripts {
+    '@spz-hud/shim.lua',   -- NUI goes through spz-hud
     'client/cam.lua',
     'client/menu.lua',
     'client/main.lua'
@@ -23,7 +24,7 @@ server_scripts {
     'server/main.lua'
 }
 
-ui_page 'ui/index.html'
+-- ui_page 'ui/index.html'  -- drawn by spz-hud now (web/public/apps/spz-tunners); uncomment + drop the shim to roll back
 
 files {
     'data/carcols_gen9.meta',
@@ -40,5 +41,6 @@ data_file 'CARCOLS_GEN9_FILE' 'data/carcols_gen9.meta'
 data_file 'CARMODCOLS_GEN9_FILE' 'data/carmodcols_gen9.meta'
 
 dependencies {
+    'spz-hud',
     'ox_lib'
 }
