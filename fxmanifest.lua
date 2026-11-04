@@ -29,11 +29,9 @@ server_scripts {
 files {
     'data/carcols_gen9.meta',
     'data/carmodcols_gen9.meta',
-    'ui/index.html',
-    'ui/style.css',
-    'ui/app.js',
-    'ui/fonts/*.ttf',
 }
+-- UI files are not shipped from here: spz-hud serves this resource's page
+-- (synced from ui/ by spz-hud/tools/sync-apps.mjs).
 
 -- Fubuki-jo chameleon paints (223-242). stream/vehicle_paint_ramps.ytd holds
 -- their colour ramps.
